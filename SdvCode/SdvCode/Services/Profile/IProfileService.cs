@@ -3,17 +3,15 @@
 
 namespace SdvCode.Services.Profile
 {
-    using System.Collections.Generic;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Http;
-    using SdvCode.Models.Enums;
+
     using SdvCode.Models.User;
-    using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserProfile;
     using SdvCode.ViewModels.Users.ViewModels;
 
     public interface IProfileService
     {
-        Task<ApplicationUserViewModel> ExtractUserInfo(string username, ApplicationUser user);
+        Task<ProfileApplicationUserViewModel> ExtractUserInfo(string username, ApplicationUser user);
 
         Task<ApplicationUser> FollowUser(string username, ApplicationUser user);
 
@@ -25,13 +23,9 @@ namespace SdvCode.Services.Profile
 
         Task<bool> HasAdmin(ApplicationRole role);
 
+        Task<bool> HasAdministrator();
+
         void MakeYourselfAdmin(string username);
-
-        Task<int> TakeCreatedPostsCountByUsername(string username);
-
-        Task<int> TakeLikedPostsCountByUsername(string username);
-
-        Task<int> TakeCommentsCountByUsername(string username);
 
         Task<double> RateUser(ApplicationUser currentUser, string username, int rate);
 

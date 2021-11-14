@@ -7,11 +7,14 @@ namespace SdvCode.Areas.Identity.Pages.Account.Manage
     using System.ComponentModel.DataAnnotations;
     using System.Linq;
     using System.Threading.Tasks;
+
     using CloudinaryDotNet;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.AspNetCore.Mvc.RazorPages;
     using Microsoft.Extensions.Logging;
+
     using SdvCode.Constraints;
     using SdvCode.Data;
     using SdvCode.Models.Blog;
@@ -102,14 +105,14 @@ namespace SdvCode.Areas.Identity.Pages.Account.Manage
             }
 
             var followFollowed = this.db.FollowUnfollows
-                .Where(x => x.PersonId == user.Id || x.FollowerId == user.Id)
+                .Where(x => x.ApplicationUserId == user.Id || x.FollowerId == user.Id)
                 .ToList();
 
             var likes = this.db.PostsLikes
                 .Where(x => x.UserId == user.Id)
                 .ToList();
             var recommendedFriends = this.db.RecommendedFriends
-                .Where(x => x.ApplicationUserId == user.Id || x.RecommendedUsername == user.UserName)
+                .Where(x => x.ApplicationUserId == user.Id || x.RecommendedApplicationUser.UserName == user.UserName)
                 .ToList();
             var chatGroups = this.db.Groups
                 .Where(x => x.Name.ToLower().Contains(user.UserName.ToLower()))

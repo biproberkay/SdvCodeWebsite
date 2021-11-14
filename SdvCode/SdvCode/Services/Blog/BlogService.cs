@@ -5,16 +5,19 @@ namespace SdvCode.Services.Blog
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
+
+    using AutoMapper;
+
     using CloudinaryDotNet;
-    using Ganss.XSS;
-    using Microsoft.AspNetCore.Http;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.SignalR;
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Areas.UserNotifications.Services;
     using SdvCode.Constraints;
@@ -25,18 +28,18 @@ namespace SdvCode.Services.Blog
     using SdvCode.Models.User;
     using SdvCode.Services.Cloud;
     using SdvCode.ViewModels.Blog.InputModels;
-    using SdvCode.ViewModels.Blog.ViewModels;
+    using SdvCode.ViewModels.Blog.ViewModels.BlogPostCard;
     using SdvCode.ViewModels.Post.InputModels;
-    using SdvCode.ViewModels.Post.ViewModels;
 
-    public class BlogService : UserValidationService, IBlogService
+    public class BlogService : IBlogService
     {
         private readonly ApplicationDbContext db;
         private readonly Cloudinary cloudinary;
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly RoleManager<ApplicationRole> roleManager;
         private readonly INotificationService notificationService;
         private readonly IHubContext<NotificationHub> notificationHubContext;
-        private readonly GlobalPostsExtractor postExtractor;
+        private readonly IMapper mapper;
         private readonly AddCyclicActivity cyclicActivity;
         private readonly AddNonCyclicActivity nonCyclicActivity;
 
@@ -44,16 +47,18 @@ namespace SdvCode.Services.Blog
             ApplicationDbContext db,
             Cloudinary cloudinary,
             UserManager<ApplicationUser> userManager,
+            RoleManager<ApplicationRole> roleManager,
             INotificationService notificationService,
-            IHubContext<NotificationHub> notificationHubContext)
-            : base(userManager, db)
+            IHubContext<NotificationHub> notificationHubContext,
+            IMapper mapper)
         {
             this.db = db;
             this.cloudinary = cloudinary;
             this.userManager = userManager;
+            this.roleManager = roleManager;
             this.notificationService = notificationService;
             this.notificationHubContext = notificationHubContext;
-            this.postExtractor = new GlobalPostsExtractor(this.db);
+            this.mapper = mapper;
             this.cyclicActivity = new AddCyclicActivity(this.db);
             this.nonCyclicActivity = new AddNonCyclicActivity(this.db);
         }
@@ -118,10 +123,8 @@ namespace SdvCode.Services.Blog
                 });
             }
 
-            var adminRole =
-                await this.db.Roles.FirstOrDefaultAsync(x => x.Name == Roles.Administrator.ToString());
-            var editorRole =
-                await this.db.Roles.FirstOrDefaultAsync(x => x.Name == Roles.Editor.ToString());
+            var adminRole = await this.roleManager.FindByNameAsync(Roles.Administrator.ToString());
+            var editorRole = await this.roleManager.FindByNameAsync(Roles.Editor.ToString());
 
             var allAdminIds = this.db.UserRoles
                 .Where(x => x.RoleId == adminRole.Id)
@@ -139,7 +142,7 @@ namespace SdvCode.Services.Blog
             {
                 post.PostStatus = PostStatus.Approved;
                 var followerIds = this.db.FollowUnfollows
-                    .Where(x => x.PersonId == user.Id && !specialIds.Contains(x.FollowerId))
+                    .Where(x => x.ApplicationUserId == user.Id && !specialIds.Contains(x.FollowerId))
                     .Select(x => x.FollowerId)
                     .ToList();
                 specialIds = specialIds.Union(followerIds).ToList();
@@ -182,7 +185,7 @@ namespace SdvCode.Services.Blog
                 IsBlocked = false,
             });
 
-            this.nonCyclicActivity.AddUserAction(user, post, UserActionsType.CreatePost, user);
+            this.nonCyclicActivity.AddUserAction(user, post, UserActionType.CreatePost, user);
             await this.db.SaveChangesAsync();
             return Tuple.Create("Success", SuccessMessages.SuccessfullyCreatedPost);
         }
@@ -216,12 +219,12 @@ namespace SdvCode.Services.Blog
 
                 if (user.Id == post.ApplicationUserId)
                 {
-                    this.cyclicActivity.AddUserAction(user, UserActionsType.DeleteOwnPost, user);
+                    this.cyclicActivity.AddUserAction(user, UserActionType.DeleteOwnPost, user);
                 }
                 else
                 {
-                    this.cyclicActivity.AddUserAction(user, UserActionsType.DeletedPost, userPost);
-                    this.cyclicActivity.AddUserAction(userPost, UserActionsType.DeletePost, user);
+                    this.cyclicActivity.AddUserAction(user, UserActionType.DeletedPost, userPost);
+                    this.cyclicActivity.AddUserAction(userPost, UserActionType.DeletePost, user);
                 }
 
                 var postActivities = this.db.UserActions.Where(x => x.PostId == post.Id);
@@ -289,12 +292,12 @@ namespace SdvCode.Services.Blog
 
                 if (user.Id == postUser.Id)
                 {
-                    this.nonCyclicActivity.AddUserAction(user, post, UserActionsType.EditOwnPost, user);
+                    this.nonCyclicActivity.AddUserAction(user, post, UserActionType.EditOwnPost, user);
                 }
                 else
                 {
-                    this.nonCyclicActivity.AddUserAction(user, post, UserActionsType.EditPost, postUser);
-                    this.nonCyclicActivity.AddUserAction(postUser, post, UserActionsType.EditedPost, user);
+                    this.nonCyclicActivity.AddUserAction(user, post, UserActionType.EditPost, postUser);
+                    this.nonCyclicActivity.AddUserAction(postUser, post, UserActionType.EditedPost, user);
                 }
 
                 this.db.Posts.Update(post);
@@ -305,85 +308,106 @@ namespace SdvCode.Services.Blog
             return Tuple.Create("Error", ErrorMessages.InvalidInputModel);
         }
 
+        /// <summary>
+        /// This function get all Categories Names from the Database.
+        /// </summary>
+        /// <returns>Returns a Collection of Strings including all Categories Names.</returns>
         public async Task<ICollection<string>> ExtractAllCategoryNames()
         {
             return await this.db.Categories.Select(x => x.Name).OrderBy(x => x).ToListAsync();
         }
 
+        /// <summary>
+        /// This function get all Tag Names from the Database.
+        /// </summary>
+        /// <returns>Returns a Collection of Strings including all Tags Names.</returns>
         public async Task<ICollection<string>> ExtractAllTagNames()
         {
             return await this.db.Tags.Select(x => x.Name).OrderBy(x => x).ToListAsync();
         }
 
-        public async Task<EditPostInputModel> ExtractPost(string id, ApplicationUser user)
+        /// <summary>
+        /// This function will return a target post for editing by its ID from the database.
+        /// </summary>
+        /// <param name="id">ID of the current accessed Blog Post.</param>
+        /// <returns>Returns a input model.</returns>
+        public async Task<EditPostInputModel> ExtractPost(string id)
         {
-            var post = await this.db.Posts.FirstOrDefaultAsync(x => x.Id == id);
-            post.Category = await this.db.Categories.FirstOrDefaultAsync(x => x.Id == post.CategoryId);
-            var postTagsNames = new List<string>();
+            var post = await this.db.Posts
+                .Include(x => x.Category)
+                .Include(x => x.PostsTags)
+                .ThenInclude(x => x.Tag)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(x => x.Id == id);
 
-            foreach (var tag in post.PostsTags)
-            {
-                postTagsNames.Add(this.db.Tags.FirstOrDefault(x => x.Id == tag.TagId).Name);
-            }
-
-            return new EditPostInputModel
-            {
-                Id = post.Id,
-                Title = post.Title,
-                CategoryName = post.Category.Name,
-                Content = post.Content,
-                TagsNames = postTagsNames,
-                Tags = postTagsNames,
-            };
+            var model = this.mapper.Map<EditPostInputModel>(post);
+            return model;
         }
 
-        public async Task<ICollection<PostViewModel>> ExtraxtAllPosts(ApplicationUser user, string search)
+        public async Task<ICollection<BlogPostCardViewModel>> ExtraxtAllPosts(ApplicationUser user, string search)
         {
             var posts = new List<Post>();
-
-            if (search == null)
-            {
-                posts = await this.db.Posts.OrderByDescending(x => x.UpdatedOn).ToListAsync();
-            }
-            else
-            {
-                posts = await this.db.Posts
-                    .Where(x => EF.Functions.FreeText(x.Title, search) ||
-                    EF.Functions.FreeText(x.ShortContent, search) ||
-                    EF.Functions.FreeText(x.Content, search))
-                    .OrderByDescending(x => x.UpdatedOn)
-                    .ToListAsync();
-            }
+            Expression<Func<Post, bool>> filterFunction;
 
             if (user != null &&
                 (await this.userManager.IsInRoleAsync(user, Roles.Administrator.ToString()) ||
                 await this.userManager.IsInRoleAsync(user, Roles.Editor.ToString())))
             {
-                posts = posts
-                    .Where(x => x.PostStatus == PostStatus.Banned || x.PostStatus == PostStatus.Pending || x.PostStatus == PostStatus.Approved)
-                    .ToList();
+                filterFunction = x => x.PostStatus == PostStatus.Banned ||
+                    x.PostStatus == PostStatus.Pending ||
+                    x.PostStatus == PostStatus.Approved;
             }
             else
             {
                 if (user != null)
                 {
-                    posts = posts
-                        .Where(x => x.PostStatus == PostStatus.Approved ||
-                        x.ApplicationUserId == user.Id)
-                        .ToList();
+                    filterFunction = x => x.PostStatus == PostStatus.Approved ||
+                        x.ApplicationUserId == user.Id;
                 }
                 else
                 {
-                    posts = posts
-                        .Where(x => x.PostStatus == PostStatus.Approved)
-                        .ToList();
+                    filterFunction = x => x.PostStatus == PostStatus.Approved;
                 }
             }
 
-            List<PostViewModel> postsModel = await this.postExtractor.ExtractPosts(user, posts);
+            if (search == null)
+            {
+                posts = this.db.Posts
+                    .Include(x => x.ApplicationUser)
+                    .Include(x => x.Category)
+                    .Include(x => x.Comments)
+                    .Include(x => x.FavouritePosts)
+                    .Include(x => x.PostLikes)
+                    .Where(filterFunction)
+                    .OrderByDescending(x => x.UpdatedOn)
+                    .AsSplitQuery()
+                    .ToList();
+            }
+            else
+            {
+                posts = this.db.Posts
+                    .Include(x => x.ApplicationUser)
+                    .Include(x => x.Category)
+                    .Include(x => x.Comments)
+                    .Include(x => x.FavouritePosts)
+                    .Include(x => x.PostLikes)
+                    .Where(x => EF.Functions.FreeText(x.Title, search) ||
+                    EF.Functions.FreeText(x.ShortContent, search) ||
+                    EF.Functions.FreeText(x.Content, search))
+                    .OrderByDescending(x => x.UpdatedOn)
+                    .AsSplitQuery()
+                    .ToList();
+            }
+
+            var postsModel = this.mapper.Map<List<BlogPostCardViewModel>>(posts);
             return postsModel;
         }
 
+        /// <summary>
+        /// This function will check is a target post exist by its ID in the database.
+        /// </summary>
+        /// <param name="id">ID of the current accessed Blog Post.</param>
+        /// <returns>Returns a boolean value, is the Blog Post exist.</returns>
         public async Task<bool> IsPostExist(string id)
         {
             return await this.db.Posts.AnyAsync(x => x.Id == id);

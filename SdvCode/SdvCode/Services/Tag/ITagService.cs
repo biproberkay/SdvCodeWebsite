@@ -3,19 +3,19 @@
 
 namespace SdvCode.Services.Tag
 {
-    using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Http;
+
     using SdvCode.Models.Blog;
     using SdvCode.Models.User;
-    using SdvCode.ViewModels.Post.ViewModels;
+    using SdvCode.ViewModels.Blog.ViewModels.BlogPostCard;
+    using SdvCode.ViewModels.Tag;
+    using SdvCode.ViewModels.Tag.TagPage;
 
     public interface ITagService
     {
-        Task<Tag> ExtractTagById(string id);
+        Task<TagPageTagViewModel> ExtractTagById(string id);
 
-        Task<ICollection<PostViewModel>> ExtractPostsByTagId(string id, ApplicationUser user);
+        Task<ICollection<BlogPostCardViewModel>> ExtractPostsByTagId(string id, ApplicationUser user);
     }
 }

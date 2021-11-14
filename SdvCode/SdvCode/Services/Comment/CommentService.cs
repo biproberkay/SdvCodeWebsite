@@ -4,13 +4,15 @@
 namespace SdvCode.Services.Comment
 {
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
+    using AutoMapper;
+
     using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Mvc.ModelBinding;
     using Microsoft.AspNetCore.SignalR;
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Areas.UserNotifications.Services;
     using SdvCode.Constraints;
@@ -19,26 +21,29 @@ namespace SdvCode.Services.Comment
     using SdvCode.Models.Blog;
     using SdvCode.Models.Enums;
     using SdvCode.Models.User;
+    using SdvCode.ViewModels.Comment.InputModels;
     using SdvCode.ViewModels.Comment.ViewModels;
 
-    public class CommentService : UserValidationService, ICommentService
+    public class CommentService : ICommentService
     {
         private readonly ApplicationDbContext db;
         private readonly UserManager<ApplicationUser> userManager;
         private readonly IHubContext<NotificationHub> notificationHubContext;
         private readonly INotificationService notificationService;
+        private readonly IMapper mapper;
 
         public CommentService(
             ApplicationDbContext db,
             UserManager<ApplicationUser> userManager,
             IHubContext<NotificationHub> notificationHubContext,
-            INotificationService notificationService)
-            : base(userManager, db)
+            INotificationService notificationService,
+            IMapper mapper)
         {
             this.db = db;
             this.userManager = userManager;
             this.notificationHubContext = notificationHubContext;
             this.notificationService = notificationService;
+            this.mapper = mapper;
         }
 
         public async Task<Tuple<string, string>> Create(string postId, ApplicationUser user, string content, string parentId)
@@ -162,12 +167,13 @@ namespace SdvCode.Services.Comment
         public async Task<bool> IsParentCommentApproved(string parentId)
         {
             var comment = await this.db.Comments.FirstOrDefaultAsync(x => x.Id == parentId);
-            return comment.CommentStatus == CommentStatus.Approved ? true : false;
+            return comment.CommentStatus == CommentStatus.Approved;
         }
 
-        public async Task<Post> ExtractCurrentPost(string postId)
+        public async Task<bool> IsPostApproved(string postId)
         {
-            return await this.db.Posts.FirstOrDefaultAsync(x => x.Id == postId);
+            var post = await this.db.Posts.FirstOrDefaultAsync(x => x.Id == postId);
+            return post.PostStatus == PostStatus.Banned || post.PostStatus == PostStatus.Pending;
         }
 
         public async Task<bool> IsCommentIdCorrect(string commentId, string postId)
@@ -187,22 +193,16 @@ namespace SdvCode.Services.Comment
             return false;
         }
 
-        public async Task<EditCommentViewModel> ExtractCurrentComment(string commentId)
+        public async Task<EditCommentInputModel> GetCommentById(string commentId)
         {
             var comment = await this.db.Comments.FirstOrDefaultAsync(x => x.Id == commentId);
-
-            return new EditCommentViewModel
-            {
-                CommentId = comment.Id,
-                ParentId = comment.ParentCommentId,
-                Content = comment.Content,
-                PostId = comment.PostId,
-            };
+            var model = this.mapper.Map<EditCommentInputModel>(comment);
+            return model;
         }
 
-        public async Task<Tuple<string, string>> EditComment(EditCommentViewModel model)
+        public async Task<Tuple<string, string>> EditComment(EditCommentInputModel model)
         {
-            var comment = await this.db.Comments.FirstOrDefaultAsync(x => x.Id == model.CommentId);
+            var comment = await this.db.Comments.FirstOrDefaultAsync(x => x.Id == model.Id);
             if (comment != null)
             {
                 comment.Content = model.SanitizedContent;

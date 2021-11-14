@@ -7,10 +7,13 @@ namespace SdvCode.Models.User
     using System.Collections.Generic;
     using System.ComponentModel.DataAnnotations;
     using System.ComponentModel.DataAnnotations.Schema;
+
     using Microsoft.AspNetCore.Identity;
+
     using SdvCode.Areas.PrivateChat.Models;
     using SdvCode.Areas.SdvShop.Models;
     using SdvCode.Areas.UserNotifications.Models;
+    using SdvCode.Constraints;
     using SdvCode.Models.Blog;
     using SdvCode.Models.Enums;
 
@@ -18,6 +21,7 @@ namespace SdvCode.Models.User
     {
         public ApplicationUser()
         {
+            this.RegisteredOn = DateTime.UtcNow;
         }
 
         [ForeignKey(nameof(ZipCode))]
@@ -51,13 +55,13 @@ namespace SdvCode.Models.User
 
         public CountryCode CountryCode { get; set; }
 
-        [MaxLength(600)]
+        [MaxLength(ModelConstraints.ApplicationUserAboutMeMaxLength)]
         public string AboutMe { get; set; }
 
-        [MaxLength(15)]
+        [MaxLength(ModelConstraints.ApplicationUserFirstNameMaxLength)]
         public string FirstName { get; set; }
 
-        [MaxLength(15)]
+        [MaxLength(ModelConstraints.ApplicationUserLastNameMaxLength)]
         public string LastName { get; set; }
 
         public string ImageUrl { get; set; }
@@ -76,38 +80,50 @@ namespace SdvCode.Models.User
 
         public string InstagramUrl { get; set; }
 
+        [Required]
         public bool IsBlocked { get; set; }
 
-        [MaxLength(200)]
+        [MaxLength(ModelConstraints.ApplicationUserReasonToBeBlockedMaxLength)]
         public string ReasonToBeBlocked { get; set; }
 
-        // public ICollection<FavouriteProduct> FavouriteProducts { get; set; } = new HashSet<FavouriteProduct>();
+        public virtual ICollection<ApplicationUserRole> UserRoles { get; set; }
 
-        // public ICollection<WishlistProduct> WishlistProducts { get; set; } = new HashSet<WishlistProduct>();
-        public ICollection<UserAction> UserActions { get; set; } = new HashSet<UserAction>();
+        public virtual ICollection<UserAction> UserActions { get; set; }
 
-        public ICollection<Post> Posts { get; set; } = new HashSet<Post>();
+        public virtual ICollection<FollowUnfollow> Following { get; set; }
 
-        public ICollection<Comment> Comments { get; set; } = new HashSet<Comment>();
+        public virtual ICollection<FollowUnfollow> Followers { get; set; }
 
-        public ICollection<FavouritePost> FavouritePosts { get; set; } = new HashSet<FavouritePost>();
+        public virtual ICollection<Post> Posts { get; set; }
 
-        public ICollection<PendingPost> PendingPosts { get; set; } = new HashSet<PendingPost>();
+        public virtual ICollection<Comment> Comments { get; set; }
 
-        public ICollection<BlockedPost> BlockedPosts { get; set; } = new HashSet<BlockedPost>();
+        public virtual ICollection<PostLike> PostLikes { get; set; }
 
-        public ICollection<UserGroup> UsersGroups { get; set; } = new HashSet<UserGroup>();
+        public virtual ICollection<FavouritePost> FavouritePosts { get; set; }
 
-        public ICollection<ChatMessage> ChatMessages { get; set; } = new HashSet<ChatMessage>();
+        public virtual ICollection<PendingPost> PendingPosts { get; set; }
 
-        public ICollection<RecommendedFriend> RecommendedFriends { get; set; } = new HashSet<RecommendedFriend>();
+        public virtual ICollection<BlockedPost> BlockedPosts { get; set; }
 
-        public ICollection<ProductComment> ProductComments { get; set; } = new HashSet<ProductComment>();
+        public virtual ICollection<UserGroup> UsersGroups { get; set; }
 
-        public ICollection<ProductReview> ProductReviews { get; set; } = new HashSet<ProductReview>();
+        public virtual ICollection<ChatMessage> ChatMessages { get; set; }
 
-        public ICollection<UserNotification> UserNotifications { get; set; } = new HashSet<UserNotification>();
+        public virtual ICollection<ChatImage> ChatImages { get; set; }
 
-        public ICollection<QuickChatReply> QuickChatReplies { get; set; } = new HashSet<QuickChatReply>();
+        public virtual ICollection<RecommendedFriend> RecommendedFriends { get; set; }
+
+        public virtual ICollection<RecommendedFriend> UserRecommendations { get; set; }
+
+        public virtual ICollection<ProductComment> ProductComments { get; set; }
+
+        public virtual ICollection<ProductReview> ProductReviews { get; set; }
+
+        public virtual ICollection<UserNotification> UserNotifications { get; set; }
+
+        public virtual ICollection<QuickChatReply> QuickChatReplies { get; set; }
+
+        public virtual ICollection<FavouriteStickers> FavouriteStickers { get; set; }
     }
 }

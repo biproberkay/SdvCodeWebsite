@@ -3,16 +3,16 @@
 
 namespace SdvCode.Services.Profile.Pagination.Profile
 {
-    using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Http;
+
     using SdvCode.Models.User;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.BlogComponent;
 
     public interface IProfileFavoritesService
     {
-        Task<List<FavoritesViewModel>> ExtractFavorites(ApplicationUser user, ApplicationUser currentUser);
+        List<FavouritePostViewModel> ExtractFavorites(ApplicationUser user, ApplicationUser currentUser);
     }
 }

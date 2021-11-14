@@ -7,10 +7,13 @@ namespace SdvCode.Areas.Editor.Controllers
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
+    using SdvCode.ApplicationAttributes.ActionAttributes;
     using SdvCode.Areas.Editor.Services;
     using SdvCode.Areas.Editor.Services.Category;
     using SdvCode.Areas.Editor.ViewModels;
@@ -22,47 +25,26 @@ namespace SdvCode.Areas.Editor.Controllers
     public class EditCategoryController : Controller
     {
         private readonly IEditCategoryService editCategoryService;
-        private readonly UserManager<ApplicationUser> userManager;
-        private readonly IHttpContextAccessor contextAccessor;
 
-        public EditCategoryController(
-            IEditCategoryService editCategoryService,
-            UserManager<ApplicationUser> userManager,
-            IHttpContextAccessor contextAccessor)
+        public EditCategoryController(IEditCategoryService editCategoryService)
         {
             this.editCategoryService = editCategoryService;
-            this.userManager = userManager;
-            this.contextAccessor = contextAccessor;
         }
 
         [Route("Editor/EditCategory/{id?}")]
         [HttpGet]
+        [UserBlocked("Index", "Profile")]
         public async Task<IActionResult> Index(string id)
         {
-            var currentUser = await this.userManager.GetUserAsync(this.contextAccessor.HttpContext.User);
-            var isBlocked = this.editCategoryService.IsBlocked(currentUser);
-            if (isBlocked)
-            {
-                this.TempData["Error"] = ErrorMessages.YouAreBlock;
-                return this.RedirectToAction("Index", "Blog");
-            }
-
             EditCategoryInputModel model = await this.editCategoryService.ExtractCategoryById(id);
             return this.View(model);
         }
 
         [Route("Editor/EditCategory/{id?}")]
         [HttpPost]
+        [UserBlocked("Index", "Profile")]
         public async Task<IActionResult> Index(EditCategoryInputModel model)
         {
-            var currentUser = await this.userManager.GetUserAsync(this.contextAccessor.HttpContext.User);
-            var isBlocked = this.editCategoryService.IsBlocked(currentUser);
-            if (isBlocked)
-            {
-                this.TempData["Error"] = ErrorMessages.YouAreBlock;
-                return this.RedirectToAction("Index", "Blog");
-            }
-
             bool isEdited = await this.editCategoryService.EditCategory(model);
             if (isEdited == true)
             {

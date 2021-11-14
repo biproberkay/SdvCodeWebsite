@@ -6,7 +6,9 @@ namespace SdvCode.Models.User
     using System;
     using System.ComponentModel.DataAnnotations;
     using System.ComponentModel.DataAnnotations.Schema;
+
     using AngleSharp.Common;
+
     using SdvCode.Models.Blog;
     using SdvCode.Models.Enums;
 
@@ -14,45 +16,48 @@ namespace SdvCode.Models.User
     {
         public UserAction()
         {
-            this.ActionStatus = UserActionsStatus.Unread;
             this.Id = Guid.NewGuid().ToString();
+            this.ActionStatus = UserActionStatus.Unread;
+            this.CreatedOn = DateTime.UtcNow;
         }
 
         [Key]
+        [Required]
         public string Id { get; set; }
 
-        [ForeignKey(nameof(ApplicationUser))]
         [Required]
+        [ForeignKey(nameof(ApplicationUser))]
         public string ApplicationUserId { get; set; }
 
         public ApplicationUser ApplicationUser { get; set; }
 
         [Required]
-        public UserActionsType Action { get; set; }
+        public DateTime CreatedOn { get; set; }
 
         [Required]
-        public DateTime ActionDate { get; set; }
-
-        public string PersonUsername { get; set; }
-
-        public string FollowerUsername { get; set; }
-
-        public string ProfileImageUrl { get; set; }
-
-        public string CoverImageUrl { get; set; }
-
-        [ForeignKey(nameof(Post))]
-        public string PostId { get; set; }
-
-        public Post Post { get; set; }
-
-        [MaxLength(150)]
-        public string PostTitle { get; set; }
-
-        [MaxLength(350)]
-        public string PostContent { get; set; }
+        public UserActionStatus ActionStatus { get; set; }
 
         [Required]
-        public UserActionsStatus ActionStatus { get; set; }
+        [EnumDataType(typeof(UserActionType))]
+        public UserActionType ActionType { get; set; }
+
+        //public string PersonUsername { get; set; }
+
+        //public string FollowerUsername { get; set; }
+
+        //public string ProfileImageUrl { get; set; }
+
+        //public string CoverImageUrl { get; set; }
+
+        //[ForeignKey(nameof(Post))]
+        //public string PostId { get; set; }
+
+        //public Post Post { get; set; }
+
+        //[MaxLength(150)]
+        //public string PostTitle { get; set; }
+
+        //[MaxLength(350)]
+        //public string PostContent { get; set; }
     }
 }

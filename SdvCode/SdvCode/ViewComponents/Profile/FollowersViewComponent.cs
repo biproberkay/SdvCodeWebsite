@@ -7,8 +7,10 @@ namespace SdvCode.ViewComponents.Profile
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
     using SdvCode.Constraints;
     using SdvCode.Data;
     using SdvCode.Models.User;
@@ -17,6 +19,9 @@ namespace SdvCode.ViewComponents.Profile
     using SdvCode.ViewModels.Pagination;
     using SdvCode.ViewModels.Pagination.Profile;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.ActivitiesComponent;
+
     using X.PagedList;
 
     public class FollowersViewComponent : ViewComponent
@@ -32,9 +37,7 @@ namespace SdvCode.ViewComponents.Profile
 
         public async Task<IViewComponentResult> InvokeAsync(string username, int page)
         {
-            var user = await this.userManager.FindByNameAsync(username);
-            var currentUserId = this.userManager.GetUserId(this.HttpContext.User);
-            List<FollowersViewModel> allFollowers = await this.followersService.ExtractFollowers(user, currentUserId);
+            List<FollowersViewModel> allFollowers = await this.followersService.ExtractFollowers(username);
 
             FollowersPaginationViewModel model = new FollowersPaginationViewModel
             {

@@ -3,10 +3,13 @@
 
 namespace SdvCode.Services.AllCategories
 {
-    using System;
     using System.Collections.Generic;
     using System.Linq;
-    using System.Threading.Tasks;
+
+    using AutoMapper;
+
+    using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Data;
     using SdvCode.Models.Enums;
     using SdvCode.ViewModels.AllCategories.ViewModels;
@@ -14,48 +17,24 @@ namespace SdvCode.Services.AllCategories
     public class AllCategoriesService : IAllCategoriesService
     {
         private readonly ApplicationDbContext db;
+        private readonly IMapper mapper;
 
-        public AllCategoriesService(ApplicationDbContext db)
+        public AllCategoriesService(ApplicationDbContext db, IMapper mapper)
         {
             this.db = db;
+            this.mapper = mapper;
         }
 
-        public ICollection<AllCategoriesViewModel> GetAllBlogCategories()
+        public ICollection<AllCategoriesCategoryViewModel> GetAllBlogCategories()
         {
-            var categories = this.db.Categories.OrderBy(x => x.Name).ToList();
-            var result = new List<AllCategoriesViewModel>();
+            var categories = this.db.Categories
+                .Include(x => x.Posts)
+                .ThenInclude(x => x.ApplicationUser)
+                .OrderBy(x => x.Name)
+                .ToList();
 
-            foreach (var category in categories)
-            {
-                var posts = this.db.Posts
-                    .Where(x => x.CategoryId == category.Id && x.PostStatus == PostStatus.Approved)
-                    .ToList()
-                    .Take(10);
-                var postsImages = new Dictionary<string, string>();
-
-                foreach (var post in posts)
-                {
-                    postsImages.Add(post.ImageUrl, post.Title);
-                }
-
-                result.Add(new AllCategoriesViewModel
-                {
-                    Id = category.Id,
-                    Name = category.Name,
-                    Description = category.Description,
-                    CreatedOn = category.CreatedOn,
-                    UpdatedOn = category.UpdatedOn,
-                    ApprovedPostsCount = this.db.Posts
-                        .Count(x => x.CategoryId == category.Id && x.PostStatus == PostStatus.Approved),
-                    PendingPostsCount = this.db.Posts
-                        .Count(x => x.CategoryId == category.Id && x.PostStatus == PostStatus.Pending),
-                    BannedPostsCount = this.db.Posts
-                        .Count(x => x.CategoryId == category.Id && x.PostStatus == PostStatus.Banned),
-                    PostsImages = postsImages,
-                });
-            }
-
-            return result;
+            var model = this.mapper.Map<List<AllCategoriesCategoryViewModel>>(categories);
+            return model;
         }
     }
 }

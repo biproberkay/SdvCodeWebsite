@@ -1,25 +1,26 @@
-﻿@model PostViewModel
+﻿@model BlogPostCardViewModel
 
 <div class="post">
     <div class="post-image-wrapper">
         <img src=@Model.ImageUrl class="img-responsive" alt="post cover image" />
         <span class="blog-date">
-            <a asp-area="" asp-controller="Post" asp-action="Index" asp-route-id="@Model.Id">
+            <a asp-area="" asp-controller="Post" asp-action="Index" asp-route-postId="@Model.Id">
                 <i class="fas fa-edit"></i> @Model.UpdatedOn.ToLocalTime().ToString("MMMM dd, yyyy")
             </a>
         </span>
     </div>
     <div class="post-header clearfix">
         <h2 class="post-title">
-            <a asp-area="" asp-controller="Post" asp-action="Index" asp-route-id="@Model.Id">@Model.Title</a>
+            <a asp-area="" asp-controller="Post" asp-action="Index" asp-route-postId="@Model.Id">@Model.Title</a>
         </h2>
 
         @if ((User.IsInRole(Roles.Administrator.ToString()) || User.IsInRole(Roles.Editor.ToString()) || Model.IsAuthor == true) && Model.ApplicationUser.IsBlocked == false)
         {
-            <a asp-area="" asp-controller="Blog" asp-action="EditPost" asp-route-id="@Model.Id" class="btn btn-info"><i class="fas fa-edit"></i> Edit Post</a>
-            <a class="btn btn-danger" data-toggle="modal" data-target="#logoutModal">
-                <i class="fas fa-trash-alt"></i>
-                Delete Post
+            <a asp-area="" asp-controller="Blog" asp-action="EditPost" asp-route-id="@Model.Id" class="btn btn-info">
+                <i class="fas fa-edit"></i> Edit Post
+            </a>
+            <a class="btn btn-danger" data-toggle="modal" data-target="#modal-@Model.Id">
+                <i class="fas fa-trash-alt"></i> Delete Post
             </a>
         }
 
@@ -95,39 +96,45 @@
                 }
             </span>
             <div class="pull-right">
-                <span class="post-meta-comments">
+                <div class="post-meta-comments" style="display: inline-block">
                     @if (SignInManager.IsSignedIn(User))
                     {
                         <a>
-                            <i class="fa fa-comment-o"></i> @Model.Comments.Count
+                            <i class="fa fa-comment-o"></i> @Model.CommentsCount
                         </a>
                     }
                     else
                     {
-                        <h><i class="fa fa-comment-o"></i> @Model.Comments.Count comments</h>
+                        <h><i class="fa fa-comment-o"></i> @Model.CommentsCount comments</h>
                     }
-                </span>
-                <span class="post-meta-hits">
+                </div>
+                <div class="post-meta-hits" style="display: inline-block">
                     @if (Model.IsLiked == true)
                     {
-                        <a asp-area="" asp-controller="Post" asp-action="UnlikePost" asp-route-id="@Model.Id">
-                            <i class="fas fa-thumbs-down"></i> Unlike
-                        </a>
+                        <form asp-area="" asp-controller="Post" asp-action="UnlikePost" asp-route-postId="@Model.Id"
+                              method="post">
+                            <button type="submit" class="transparentCommentButton">
+                                <i class="fas fa-thumbs-down"></i> Unlike
+                            </button>
+                        </form>
                     }
                     else
                     {
                         @if (Model.IsLiked == false && SignInManager.IsSignedIn(User))
                         {
-                            <a asp-area="" asp-controller="Post" asp-action="LikePost" asp-route-id="@Model.Id">
-                                <i class="fas fa-thumbs-up"></i> Like
-                            </a>
+                            <form asp-area="" asp-controller="Post" asp-action="LikePost" asp-route-postId="@Model.Id"
+                                  method="post" style="display: inline-block">
+                                <button type="submit" class="transparentCommentButton">
+                                    <i class="fas fa-thumbs-up"></i> Like
+                                </button>
+                            </form>
                         }
                         else
                         {
                             <h><i class="fas fa-thumbs-up"></i> @Model.Likes likes</h>
                         }
                     }
-                </span>
+                </div>
             </div>
         </div>
     </div>
@@ -135,27 +142,36 @@
         <p>@Html.Raw(Model.ShortContent)</p>
     </div>
     <div class="post-footer row" style="padding: 0px 7px 0px 7px">
-        <a asp-area="" asp-controller="Post" asp-action="Index" asp-route-id="@Model.Id" class="btn btn-primary">
-            Continue Reading <i class="fas fa-angle-double-right">&nbsp;</i>
-        </a>
+        <form asp-area="" asp-controller="Post" asp-action="Index" asp-route-postId="@Model.Id"
+              method="get" style="display: inline-block">
+            <button type="submit" class="btn btn-primary">
+                Continue Reading <i class="fas fa-angle-double-right">&nbsp;</i>
+            </button>
+        </form>
         @if (SignInManager.IsSignedIn(User))
         {
             @if (!Model.IsFavourite)
             {
-                <a asp-area="" asp-controller="Post" asp-action="AddToFavorite" asp-route-id="@Model.Id" class="btn btn-primary pull-right">
-                    <i class="far fa-heart"></i> Add to favorite
-                </a>
+                <form asp-area="" asp-controller="Post" asp-action="AddToFavorite" asp-route-postId="@Model.Id"
+                      method="post" style="display: inline">
+                    <button type="submit" class="btn btn-primary pull-right">
+                        <i class="far fa-heart"></i> Add to favorite
+                    </button>
+                </form>
             }
             else
             {
-                <a asp-area="" asp-controller="Post" asp-action="RemoveFromFavorite" asp-route-id="@Model.Id" style="float: right" class="btn btn-primary">
-                    <i class="fas fa-eraser"></i> Remove from favorite
-                </a>
+                <form asp-area="" asp-controller="Post" asp-action="RemoveFromFavorite" asp-route-postId="@Model.Id"
+                      method="post" style="display: inline">
+                    <button type="submit" style="float: right" class="btn btn-primary">
+                        <i class="fas fa-eraser"></i> Remove from favorite
+                    </button>
+                </form>
             }
         }
     </div>
 </div>
-<div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+<div class="modal fade" id="modal-@Model.Id" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
             <div class="modal-header">
@@ -163,8 +179,13 @@
             </div>
             <div class="modal-body">Select "Delete" below if you are ready to delete the post.</div>
             <div class="modal-footer">
-                <button class="btn btn-default" type="button" data-dismiss="modal">Cancel</button>
-                <a asp-area="" asp-controller="Blog" asp-action="DeletePost" asp-route-id="@Model.Id" class="btn btn-danger">Delete Post</a>
+                <button style="display: inline-block" class="btn btn-default" type="button" data-dismiss="modal">Cancel</button>
+                <form asp-area="" asp-controller="Blog" asp-action="DeletePost" asp-route-postId="@Model.Id"
+                      method="post" style="display: inline-block">
+                    <button class="btn btn-danger">
+                        Delete Post
+                    </button>
+                </form>
             </div>
         </div>
     </div>

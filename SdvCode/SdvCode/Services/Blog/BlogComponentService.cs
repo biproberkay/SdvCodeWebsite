@@ -6,211 +6,216 @@ namespace SdvCode.Services.Blog
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Text.RegularExpressions;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Http;
+
+    using AutoMapper;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Areas.Administration.Models.Enums;
+    using SdvCode.Constraints;
     using SdvCode.Data;
     using SdvCode.Models.Blog;
     using SdvCode.Models.Enums;
     using SdvCode.Models.User;
     using SdvCode.ViewModels.Blog.ViewModels;
+    using SdvCode.ViewModels.Category.ViewModels;
+    using SdvCode.ViewModels.Category.ViewModels.TopCategory;
+    using SdvCode.ViewModels.Comment.ViewModels.RecentComment;
+    using SdvCode.ViewModels.Post.ViewModels.RecentPost;
+    using SdvCode.ViewModels.Post.ViewModels.TopPost;
+    using SdvCode.ViewModels.Tag;
+    using SdvCode.ViewModels.Tag.TopTag;
+
     using X.PagedList;
 
+    /// <summary>
+    /// This service contains the logic to get all Blog information for Blog Component.
+    /// </summary>
     public class BlogComponentService : IBlogComponentService
     {
         private readonly ApplicationDbContext db;
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly IMapper mapper;
 
-        public BlogComponentService(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+        public BlogComponentService(
+            ApplicationDbContext db,
+            UserManager<ApplicationUser> userManager,
+            IMapper mapper)
         {
             this.db = db;
             this.userManager = userManager;
+            this.mapper = mapper;
         }
 
-        public async Task<ICollection<RecentCommentsViewModel>> ExtractRecentComments(ApplicationUser currentUser)
+        /// <summary>
+        /// This function will return the most recent comments made in the Blog Part of the application.
+        /// It contains filter logic relate to the current website visitor. Is it a visitor, a creator or user with higher priority roles.
+        /// </summary>
+        /// <param name="currentUser">Current logged in user.</param>
+        /// <returns>Returns a Collection of Recent Comments.</returns>
+        public async Task<ICollection<RecentCommentViewModel>> ExtractRecentComments(ApplicationUser currentUser)
         {
-            List<Comment> comments = new List<Comment>();
+            Expression<Func<Comment, bool>> filterFunction;
+
             if (currentUser != null &&
                 (await this.userManager.IsInRoleAsync(currentUser, Roles.Administrator.ToString()) ||
                 await this.userManager.IsInRoleAsync(currentUser, Roles.Editor.ToString())))
             {
-                comments = this.db.Comments
-                    .OrderByDescending(x => x.UpdatedOn)
-                    .ToList();
+                filterFunction = x => x.CommentStatus == CommentStatus.Pending || x.CommentStatus == CommentStatus.Approved;
             }
             else
             {
                 if (currentUser != null)
                 {
-                    comments = this.db.Comments
-                        .Where(x => x.CommentStatus == CommentStatus.Approved ||
-                        x.ApplicationUserId == currentUser.Id)
-                        .ToList();
+                    filterFunction = x => x.CommentStatus == CommentStatus.Approved ||
+                        x.ApplicationUserId == currentUser.Id;
                 }
                 else
                 {
-                    comments = this.db.Comments
-                        .Where(x => x.CommentStatus == CommentStatus.Approved)
-                        .OrderByDescending(x => x.UpdatedOn)
-                        .ToList();
+                    filterFunction = x => x.CommentStatus == CommentStatus.Approved;
                 }
             }
 
-            var recentComments = new List<RecentCommentsViewModel>();
+            var comments = this.db.Comments
+                .Include(x => x.ApplicationUser)
+                .Where(filterFunction)
+                .OrderByDescending(x => x.UpdatedOn)
+                .Take(GlobalConstants.RecentCommentsCount)
+                .AsSplitQuery()
+                .ToList();
 
-            foreach (var comment in comments.Take(35))
+            var model = this.mapper.Map<List<RecentCommentViewModel>>(comments);
+
+            foreach (var comment in model)
             {
-                var user = this.db.Users.FirstOrDefault(x => x.Id == comment.ApplicationUserId);
                 var contentWithoutTags = Regex.Replace(comment.Content, "<.*?>", string.Empty);
-                recentComments.Add(new RecentCommentsViewModel
-                {
-                    User = user,
-                    CreatedOn = comment.CreatedOn,
-                    CommentStatus = comment.CommentStatus,
-                    ShortContent = contentWithoutTags.Length < 95 ?
+
+                comment.ShortContent = contentWithoutTags.Length < 95 ?
                         contentWithoutTags :
-                        $"{contentWithoutTags.Substring(0, 95)}...",
-                    PostId = comment.PostId,
-                });
+                        $"{contentWithoutTags.Substring(0, 95)}...";
             }
 
-            return recentComments;
+            return model;
         }
 
-        public List<RecentPostsViewModel> ExtractRecentPosts(ApplicationUser currentUser)
+        /// <summary>
+        /// This function will return the most recent posts made in the Blog Part of the application.
+        /// It contains filter logic relate to the current website visitor. Is it a visitor, a creator or user with higher priority roles.
+        /// </summary>
+        /// <param name="currentUser">Current logged in user.</param>
+        /// <returns>Returns a Collection of Recent Posts.</returns>
+        public async Task<List<RecentPostViewModel>> ExtractRecentPosts(ApplicationUser currentUser)
         {
-            List<Post> posts = new List<Post>();
-            if (currentUser != null &&
-                (this.userManager.IsInRoleAsync(currentUser, Roles.Administrator.ToString()).GetAwaiter().GetResult() ||
-                this.userManager.IsInRoleAsync(currentUser, Roles.Editor.ToString()).GetAwaiter().GetResult()))
-            {
-                posts = this.db.Posts
-                    .OrderByDescending(x => x.UpdatedOn)
-                    .ToList();
-            }
-            else
-            {
-                if (currentUser != null)
-                {
-                    posts = this.db.Posts
-                        .Where(x => x.PostStatus == PostStatus.Approved ||
-                        x.ApplicationUserId == currentUser.Id)
-                        .ToList();
-                }
-                else
-                {
-                    posts = this.db.Posts
-                        .Where(x => x.PostStatus == PostStatus.Approved)
-                        .ToList();
-                }
-            }
-
-            var recentPosts = new List<RecentPostsViewModel>();
-
-            foreach (var post in posts.Take(20))
-            {
-                var user = this.db.Users.FirstOrDefault(x => x.Id == post.ApplicationUserId);
-                recentPosts.Add(new RecentPostsViewModel
-                {
-                    Id = post.Id,
-                    Title = post.Title,
-                    CreatedOn = post.CreatedOn,
-                    ImageUrl = post.ImageUrl,
-                    ApplicationUser = user,
-                    PostStatus = post.PostStatus,
-                });
-            }
-
-            return recentPosts;
-        }
-
-        public async Task<List<TopCategoriesViewModel>> ExtractTopCategories()
-        {
-            var categories = this.db.Categories.ToList();
-            var topCategories = new List<TopCategoriesViewModel>();
-
-            foreach (var category in categories.Take(10))
-            {
-                topCategories.Add(new TopCategoriesViewModel
-                {
-                    Id = category.Id,
-                    Name = category.Name,
-                    PostsCount = await this.db.Posts.CountAsync(x => x.CategoryId == category.Id),
-                });
-            }
-
-            return topCategories.OrderByDescending(x => x.PostsCount).ToList();
-        }
-
-        public async Task<List<TopPostsViewModel>> ExtractTopPosts(ApplicationUser currentUser)
-        {
-            List<Post> posts = new List<Post>();
+            Expression<Func<Post, bool>> filterFunction;
 
             if (currentUser != null &&
                 (await this.userManager.IsInRoleAsync(currentUser, Roles.Administrator.ToString()) ||
                 await this.userManager.IsInRoleAsync(currentUser, Roles.Editor.ToString())))
             {
-                posts = this.db.Posts
-                    .OrderByDescending(x => x.Comments.Count + x.Likes)
-                    .ToList();
+                filterFunction = x => x.PostStatus == PostStatus.Banned ||
+                    x.PostStatus == PostStatus.Pending ||
+                    x.PostStatus == PostStatus.Approved;
             }
             else
             {
                 if (currentUser != null)
                 {
-                    posts = this.db.Posts
-                        .Where(x => x.PostStatus == PostStatus.Approved ||
-                        x.ApplicationUserId == currentUser.Id)
-                        .OrderByDescending(x => x.Comments.Count + x.Likes)
-                        .ToList();
+                    filterFunction = x => x.PostStatus == PostStatus.Approved ||
+                        x.ApplicationUserId == currentUser.Id;
                 }
                 else
                 {
-                    posts = this.db.Posts
-                        .Where(x => x.PostStatus == PostStatus.Approved)
-                        .OrderByDescending(x => x.Comments.Count + x.Likes)
-                        .ToList();
+                    filterFunction = x => x.PostStatus == PostStatus.Approved;
                 }
             }
 
-            var topPosts = new List<TopPostsViewModel>();
+            var posts = this.db.Posts
+                .Include(x => x.ApplicationUser)
+                .Where(filterFunction)
+                .OrderByDescending(x => x.UpdatedOn)
+                .Take(GlobalConstants.RecentPostsCount)
+                .AsSplitQuery()
+                .ToList();
 
-            foreach (var post in posts.Take(10))
-            {
-                var user = this.db.Users.FirstOrDefault(x => x.Id == post.ApplicationUserId);
-                topPosts.Add(new TopPostsViewModel
-                {
-                    Id = post.Id,
-                    Title = post.Title,
-                    CreatedOn = post.CreatedOn,
-                    ImageUrl = post.ImageUrl,
-                    ApplicationUser = user,
-                    PostStatus = post.PostStatus,
-                });
-            }
-
-            return topPosts;
+            var model = this.mapper.Map<List<RecentPostViewModel>>(posts);
+            return model;
         }
 
-        public async Task<List<TopTagsViewModel>> ExtractTopTags()
+        /// <summary>
+        /// This function will return TOP Categories in the Blog Part of the application.
+        /// </summary>
+        /// <returns>Returns a Collection of TOP Categories.</returns>
+        public List<TopCategoryViewModel> ExtractTopCategories()
         {
-            var tags = this.db.Tags.ToList();
-            var topTags = new List<TopTagsViewModel>();
+            var categories = this.db.Categories
+                .Include(x => x.Posts)
+                .Take(GlobalConstants.TopCategoriesCount)
+                .AsSplitQuery()
+                .ToList();
 
-            foreach (var tag in tags)
+            var model = this.mapper.Map<List<TopCategoryViewModel>>(categories);
+            return model;
+        }
+
+        /// <summary>
+        /// This function will return TOP Posts in the Blog Part of the application.
+        /// </summary>
+        /// <returns>Returns a Collection of TOP Posts.</returns>
+        public async Task<List<TopPostViewModel>> ExtractTopPosts(ApplicationUser currentUser)
+        {
+            Expression<Func<Post, bool>> filterFunction;
+
+            if (currentUser != null &&
+                (await this.userManager.IsInRoleAsync(currentUser, Roles.Administrator.ToString()) ||
+                await this.userManager.IsInRoleAsync(currentUser, Roles.Editor.ToString())))
             {
-                topTags.Add(new TopTagsViewModel
+                filterFunction = x => x.PostStatus == PostStatus.Banned ||
+                    x.PostStatus == PostStatus.Pending ||
+                    x.PostStatus == PostStatus.Approved;
+            }
+            else
+            {
+                if (currentUser != null)
                 {
-                    Id = tag.Id,
-                    Name = tag.Name,
-                    Count = await this.db.PostsTags.CountAsync(x => x.TagId == tag.Id),
-                });
+                    filterFunction = x => x.PostStatus == PostStatus.Approved ||
+                        x.ApplicationUserId == currentUser.Id;
+                }
+                else
+                {
+                    filterFunction = x => x.PostStatus == PostStatus.Approved;
+                }
             }
 
-            return topTags.OrderByDescending(x => x.Count).Take(10).ToList();
+            var posts = this.db.Posts
+                .Include(x => x.ApplicationUser)
+                .Where(filterFunction)
+                .OrderByDescending(x => x.Comments.Count + x.Likes)
+                .Take(GlobalConstants.TopPostsCount)
+                .AsSplitQuery()
+                .ToList();
+
+            var model = this.mapper.Map<List<TopPostViewModel>>(posts);
+            return model;
+        }
+
+        /// <summary>
+        /// This function will return TOP Tags in the Blog Part of the application.
+        /// </summary>
+        /// <returns>Returns a Collection of TOP Tags.</returns>
+        public List<TopTagViewModel> ExtractTopTags()
+        {
+            var tags = this.db.Tags
+                .Include(x => x.TagsPosts)
+                .Take(GlobalConstants.TopTagsCount)
+                .AsSplitQuery()
+                .ToList();
+
+            var model = this.mapper.Map<List<TopTagViewModel>>(tags);
+            return model;
         }
     }
 }

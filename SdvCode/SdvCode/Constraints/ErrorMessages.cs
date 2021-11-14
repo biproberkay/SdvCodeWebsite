@@ -37,11 +37,23 @@ namespace SdvCode.Constraints
 
         public const string YouAreBlock = "Bro you are blocked. Don't make bullshits :)";
 
-        public const string NotInBlogRoles = "You're not in \"{0}\" role. Go to your account add phone number and verify it.";
+        public const string NotInBlogRoles = "You're not in \"{0}\" role at least. Go to your account add phone number and verify it.";
 
-        public const string NotInDeletePostRoles = "You don't have permissions to delete post.";
+        public const string NotExistingPost = "There is no such post!";
 
-        public const string NotInEditPostRoles = "You don't have permissions to edit post.";
+        public const string NotExistingComment = "There is no such comment!";
+
+        public const string NoPermissionsToCreateBlogPost = "You don't have permissions to create post!";
+
+        public const string NoPermissionToDeleteComment = "You don't have permissions to delete a comment!";
+
+        public const string NoPermissionToEditComment = "You don't have permissions to edit a comment!";
+
+        public const string NoPermissionToCreateComment = "You don't have permissions to create a comment!";
+
+        public const string NoPermissionsToDeleteBlogPost = "You don't have permissions to delete post.";
+
+        public const string NoPermissionToEditBlogPost = "You don't have permissions to edit post.";
 
         public const string NotApprovedBlogPost = "You cannot see not approved post.";
 

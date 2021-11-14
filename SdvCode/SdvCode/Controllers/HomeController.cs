@@ -9,9 +9,11 @@ namespace SdvCode.Controllers
     using System.Diagnostics;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
     using Microsoft.Extensions.Logging;
+
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Models;
     using SdvCode.Services.Home;
@@ -26,11 +28,12 @@ namespace SdvCode.Controllers
             this.homeService = homeService;
         }
 
+        [HttpGet]
         public async Task<IActionResult> Index()
         {
             foreach (var role in Enum.GetValues(typeof(Roles)).Cast<Roles>().ToArray())
             {
-                IdentityResult result = await this.homeService.CreateRole(role.ToString());
+                _ = await this.homeService.CreateRole(role.ToString());
             }
 
             HomeViewModel model = new HomeViewModel
@@ -45,9 +48,9 @@ namespace SdvCode.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetLatestBlogPosts()
+        public IActionResult GetLatestBlogPosts()
         {
-            ICollection<LatestPostViewModel> latestPosts = await this.homeService.GetLatestPosts();
+            ICollection<HomeLatestPostViewModel> latestPosts = this.homeService.GetLatestPosts();
             return new JsonResult(latestPosts);
         }
 

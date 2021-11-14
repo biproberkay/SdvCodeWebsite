@@ -7,8 +7,10 @@ namespace SdvCode.Areas.Editor.Services.Post
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.SignalR;
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Areas.UserNotifications.Services;
     using SdvCode.Data;
@@ -17,30 +19,29 @@ namespace SdvCode.Areas.Editor.Services.Post
     using SdvCode.Models.User;
     using SdvCode.Services;
 
-    public class EditorPostService : UserValidationService, IEditorPostService
+    public class EditorPostService : IEditorPostService
     {
         private readonly ApplicationDbContext db;
         private readonly INotificationService notificationService;
         private readonly IHubContext<NotificationHub> notificationHubContext;
-        private readonly List<UserActionsType> actionsForBann = new List<UserActionsType>()
+        private readonly List<UserActionType> actionsForBann = new List<UserActionType>()
         {
-            UserActionsType.LikedPost,
-            UserActionsType.LikePost,
-            UserActionsType.LikeOwnPost,
-            UserActionsType.EditedPost,
-            UserActionsType.EditPost,
-            UserActionsType.EditOwnPost,
-            UserActionsType.CreatePost,
-            UserActionsType.UnlikedPost,
-            UserActionsType.UnlikePost,
-            UserActionsType.UnlikeOwnPost,
+            UserActionType.LikedPost,
+            UserActionType.LikePost,
+            UserActionType.LikeOwnPost,
+            UserActionType.EditedPost,
+            UserActionType.EditPost,
+            UserActionType.EditOwnPost,
+            UserActionType.CreatePost,
+            UserActionType.UnlikedPost,
+            UserActionType.UnlikePost,
+            UserActionType.UnlikeOwnPost,
         };
 
         public EditorPostService(
             ApplicationDbContext db,
             INotificationService notificationService,
             IHubContext<NotificationHub> notificationHubContext)
-            : base(db)
         {
             this.db = db;
             this.notificationService = notificationService;
@@ -72,7 +73,7 @@ namespace SdvCode.Areas.Editor.Services.Post
                         .Select(x => x.UserId)
                         .ToList();
                     var followerIds = this.db.FollowUnfollows
-                    .Where(x => x.PersonId == post.ApplicationUserId && !specialIds.Contains(x.FollowerId))
+                    .Where(x => x.ApplicationUserId == post.ApplicationUserId && !specialIds.Contains(x.FollowerId))
                     .Select(x => x.FollowerId)
                     .ToList();
 
@@ -149,7 +150,7 @@ namespace SdvCode.Areas.Editor.Services.Post
                     }
 
                     var actions = this.db.UserActions
-                        .Where(x => x.PostId == id && this.actionsForBann.Contains(x.Action));
+                        .Where(x => x.PostId == id && this.actionsForBann.Contains(x.ActionType));
 
                     this.db.FavouritePosts.UpdateRange(favorites);
                     this.db.PostsLikes.UpdateRange(likes);

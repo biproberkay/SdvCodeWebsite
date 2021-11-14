@@ -5,9 +5,11 @@ namespace SdvCode.Controllers
 {
     using System.Collections.Generic;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Constraints;
     using SdvCode.Models.Enums;
@@ -16,6 +18,7 @@ namespace SdvCode.Controllers
     using SdvCode.ViewModels.Profile;
     using SdvCode.ViewModels.Users;
     using SdvCode.ViewModels.Users.ViewModels;
+
     using X.PagedList;
 
     [Authorize]
@@ -35,6 +38,7 @@ namespace SdvCode.Controllers
             this.profileService = profileService;
         }
 
+        [HttpGet]
         [Route("Profile/{username}/{tab?}/{page?}")]
         public async Task<IActionResult> Index(string username, ProfileTab tab, int? page)
         {
@@ -44,7 +48,7 @@ namespace SdvCode.Controllers
             }
 
             var currentUser = await this.userManager.GetUserAsync(this.User);
-            ApplicationUserViewModel user = await this.profileService.ExtractUserInfo(username, currentUser);
+            var user = await this.profileService.ExtractUserInfo(username, currentUser);
 
             var adminRole = await this.roleManager.FindByNameAsync(Roles.Administrator.ToString());
             bool hasAdmin = await this.profileService.HasAdmin(adminRole);
@@ -55,27 +59,21 @@ namespace SdvCode.Controllers
             {
                 ApplicationUser = user,
                 HasAdmin = hasAdmin,
-                CreatedPosts = await this.profileService.TakeCreatedPostsCountByUsername(username),
-                LikedPosts = await this.profileService.TakeLikedPostsCountByUsername(username),
-                CommentsCount = await this.profileService.TakeCommentsCountByUsername(username),
                 RatingScore = this.profileService.ExtractUserRatingScore(username),
                 LatestScore = await this.profileService.GetLatestScore(currentUser, username),
+                ActiveTab = tab,
+                Page = pageNumber,
             };
-
-            // if (tab == 0)
-            // {
-            //    tab = ProfileTab.Activities;
-            // }
-            model.ActiveTab = tab;
-            model.Page = pageNumber;
 
             return this.View(model);
         }
 
-        public async Task<IActionResult> SwitchToAllActivitiesTabs(string username, string tab)
+        [HttpGet]
+        [Route("/Profile/SwitchToAllActivitiesTabs/{username}/{tab}/{page}")]
+        public async Task<IActionResult> SwitchToAllActivitiesTabs(string username, string tab, int page)
         {
             var user = await this.userManager.FindByNameAsync(username);
-            var vm = tab switch
+            var tabEnum = tab switch
             {
                 "Activities" => ProfileTab.Activities,
                 "Following" => ProfileTab.Following,
@@ -86,12 +84,14 @@ namespace SdvCode.Controllers
                 _ => ProfileTab.Activities,
             };
 
-            return this.RedirectToAction("Index", new { username = user.UserName, tab = vm });
+            return this.RedirectToAction("Index", new { username = user.UserName, tab = tabEnum, page });
         }
 
-        public IActionResult SwitchToAllUsersTabs(string tab)
+        [HttpGet]
+        [Route("/Profile/SwitchToAllUsersTabs/{tab}/{page}")]
+        public IActionResult SwitchToAllUsersTabs(string tab, int page)
         {
-            var vm = tab switch
+            var tabEnum = tab switch
             {
                 "AllUsers" => AllUsersTab.AllUsers,
                 "RecommendedUsers" => AllUsersTab.RecommendedUsers,
@@ -100,9 +100,10 @@ namespace SdvCode.Controllers
                 _ => AllUsersTab.AllUsers,
             };
 
-            return this.RedirectToAction("Users", new { tab = vm });
+            return this.RedirectToAction("Users", new { tab = tabEnum, page });
         }
 
+        [HttpPost]
         [Route("/Follow/{username}")]
         public async Task<IActionResult> Follow(string username)
         {
@@ -113,6 +114,7 @@ namespace SdvCode.Controllers
             return this.Redirect($"/Profile/{user.UserName}");
         }
 
+        [HttpPost]
         [Route("/Unfollow/{username}")]
         public async Task<IActionResult> Unfollow(string username)
         {
@@ -123,6 +125,7 @@ namespace SdvCode.Controllers
             return this.Redirect($"/Profile/{user.UserName}");
         }
 
+        [HttpGet]
         [Route("/Profile/Users/{tab?}/{page?}/{search?}")]
         public IActionResult Users(AllUsersTab tab, int? page, string search)
         {
@@ -152,6 +155,7 @@ namespace SdvCode.Controllers
             return $"{rateUser:F2}/5";
         }
 
+        [HttpPost]
         [Route("/DeleteActivityHistory/{username}")]
         public async Task<IActionResult> DeleteActivityHistory(string username)
         {
@@ -162,6 +166,7 @@ namespace SdvCode.Controllers
             return this.Redirect($"/Profile/{username}");
         }
 
+        [HttpPost]
         [Route("/DeleteActivityById/{username}/{activityId}")]
         public async Task<IActionResult> DeleteActivityById(string username, string activityId)
         {
@@ -180,8 +185,16 @@ namespace SdvCode.Controllers
             return newStatus;
         }
 
-        public IActionResult MakeYourselfAdmin(string username)
+        [HttpPost]
+        public async Task<IActionResult> MakeYourselfAdmin(string username)
         {
+            var hasAdmin = await this.profileService.HasAdministrator();
+
+            if (hasAdmin)
+            {
+                return this.BadRequest();
+            }
+
             this.profileService.MakeYourselfAdmin(username);
             return this.Redirect($"/Profile/{username}");
         }

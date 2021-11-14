@@ -3,8 +3,10 @@
 
 namespace SdvCode.Data
 {
+    using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Areas.Administration.Models.HolidayTheme;
     using SdvCode.Areas.PrivateChat.Models;
     using SdvCode.Areas.SdvShop.Models;
@@ -12,7 +14,9 @@ namespace SdvCode.Data
     using SdvCode.Models.Blog;
     using SdvCode.Models.User;
 
-    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string>
+    public class ApplicationDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, string,
+        IdentityUserClaim<string>, ApplicationUserRole, IdentityUserLogin<string>,
+        IdentityRoleClaim<string>, IdentityUserToken<string>>
     {
         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
             : base(options)
@@ -106,58 +110,111 @@ namespace SdvCode.Data
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
+            base.OnModelCreating(builder);
+
+            builder.Entity<ApplicationUser>().ToTable("ApplicationUsers");
+
+            builder.Entity<ApplicationRole>().ToTable("ApplicationRoles");
+
+            builder.Entity<ApplicationUserRole>().ToTable("ApplicationUsersRoles");
+
             builder.Entity<Post>(entity =>
             {
-                entity.HasOne(x => x.ApplicationUser)
-                    .WithMany(x => x.Posts)
-                    .HasForeignKey(x => x.ApplicationUserId)
+                entity.HasOne(e => e.ApplicationUser)
+                    .WithMany(e => e.Posts)
+                    .HasForeignKey(e => e.ApplicationUserId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasMany(x => x.Comments)
-                    .WithOne(x => x.Post)
-                    .HasForeignKey(x => x.PostId)
+                entity.HasMany(e => e.Comments)
+                    .WithOne(e => e.Post)
+                    .HasForeignKey(e => e.PostId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(x => x.Category)
-                    .WithMany(x => x.Posts)
-                    .HasForeignKey(x => x.CategoryId)
+                entity.HasOne(e => e.Category)
+                    .WithMany(e => e.Posts)
+                    .HasForeignKey(e => e.CategoryId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasMany(x => x.PostImages)
-                    .WithOne(x => x.Post)
-                    .HasForeignKey(x => x.PostId)
+                entity.HasMany(e => e.PostImages)
+                    .WithOne(e => e.Post)
+                    .HasForeignKey(e => e.PostId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<City>(entity =>
             {
-                entity.HasOne(x => x.State)
-                    .WithMany(x => x.Cities)
-                    .HasForeignKey(x => x.StateId)
+                entity.HasOne(e => e.State)
+                    .WithMany(e => e.Cities)
+                    .HasForeignKey(e => e.StateId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasOne(x => x.Country)
-                    .WithMany(x => x.Cities)
-                    .HasForeignKey(x => x.CountryId)
+                entity.HasOne(e => e.Country)
+                    .WithMany(e => e.Cities)
+                    .HasForeignKey(e => e.CountryId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasMany(x => x.ZipCodes)
-                    .WithOne(x => x.City)
-                    .HasForeignKey(x => x.CityId)
+                entity.HasMany(e => e.ZipCodes)
+                    .WithOne(e => e.City)
+                    .HasForeignKey(e => e.CityId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<ApplicationUser>(entity =>
             {
-                entity.HasOne(x => x.ZipCode)
-                    .WithMany(x => x.ApplicationUsers)
-                    .HasForeignKey(x => x.ZipCodeId)
+                entity.HasOne(e => e.ZipCode)
+                    .WithMany(e => e.ApplicationUsers)
+                    .HasForeignKey(e => e.ZipCodeId)
                     .IsRequired(false);
 
-                entity.HasOne(x => x.CountryCode)
-                    .WithMany(x => x.ApplicationUsers)
-                    .HasForeignKey(x => x.CountryCodeId)
+                entity.HasOne(e => e.CountryCode)
+                    .WithMany(e => e.ApplicationUsers)
+                    .HasForeignKey(e => e.CountryCodeId)
                     .IsRequired(false);
+
+                entity.HasMany(e => e.UserRoles)
+                    .WithOne(e => e.User)
+                    .HasForeignKey(ur => ur.UserId)
+                    .IsRequired();
+            });
+
+            builder.Entity<ApplicationRole>(b =>
+            {
+                b.HasMany(e => e.UserRoles)
+                    .WithOne(e => e.Role)
+                    .HasForeignKey(ur => ur.RoleId)
+                    .IsRequired();
+            });
+
+            builder.Entity<FollowUnfollow>(b =>
+            {
+                b.HasOne(e => e.ApplicationUser)
+                    .WithMany(e => e.Followers)
+                    .HasForeignKey(e => e.ApplicationUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<FollowUnfollow>(b =>
+            {
+                b.HasOne(e => e.Follower)
+                    .WithMany(e => e.Following)
+                    .HasForeignKey(e => e.FollowerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<RecommendedFriend>(b =>
+            {
+                b.HasOne(e => e.ApplicationUser)
+                    .WithMany(e => e.RecommendedFriends)
+                    .HasForeignKey(e => e.ApplicationUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<RecommendedFriend>(b =>
+            {
+                b.HasOne(e => e.RecommendedApplicationUser)
+                    .WithMany(e => e.UserRecommendations)
+                    .HasForeignKey(e => e.RecommendedApplicationUserId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<PostTag>().HasKey(k => new
@@ -174,8 +231,14 @@ namespace SdvCode.Data
 
             builder.Entity<FollowUnfollow>().HasKey(k => new
             {
-                k.PersonId,
+                k.ApplicationUserId,
                 k.FollowerId,
+            });
+
+            builder.Entity<RecommendedFriend>().HasKey(k => new
+            {
+                k.ApplicationUserId,
+                k.RecommendedApplicationUserId,
             });
 
             builder.Entity<FavouritePost>().HasKey(k => new
@@ -222,58 +285,56 @@ namespace SdvCode.Data
 
             builder.Entity<Group>(entity =>
             {
-                entity.HasOne(x => x.ChatTheme)
-                    .WithMany(x => x.Groups)
-                    .HasForeignKey(x => x.ChatThemeId)
+                entity.HasOne(e => e.ChatTheme)
+                    .WithMany(e => e.Groups)
+                    .HasForeignKey(e => e.ChatThemeId)
                     .OnDelete(DeleteBehavior.Restrict)
                     .IsRequired(false);
 
-                entity.HasMany(x => x.ChatImages)
-                    .WithOne(x => x.Group)
-                    .HasForeignKey(x => x.GroupId)
+                entity.HasMany(e => e.ChatImages)
+                    .WithOne(e => e.Group)
+                    .HasForeignKey(e => e.GroupId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
             builder.Entity<Emoji>()
-                .HasMany(x => x.EmojiSkins)
-                .WithOne(x => x.Emoji)
-                .HasForeignKey(x => x.EmojiId)
+                .HasMany(e => e.EmojiSkins)
+                .WithOne(e => e.Emoji)
+                .HasForeignKey(e => e.EmojiId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<ChatMessage>()
-                .HasMany(x => x.ChatImages)
-                .WithOne(x => x.ChatMessage)
-                .HasForeignKey(x => x.ChatMessageId)
+                .HasMany(e => e.ChatImages)
+                .WithOne(e => e.ChatMessage)
+                .HasForeignKey(e => e.ChatMessageId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Country>()
-                .HasOne(x => x.CountryCode)
-                .WithMany(x => x.Coutries)
-                .HasForeignKey(x => x.CountryCodeId)
+                .HasOne(e => e.CountryCode)
+                .WithMany(e => e.Coutries)
+                .HasForeignKey(e => e.CountryCodeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             builder.Entity<Sticker>()
-                .HasOne(x => x.StickerType)
-                .WithMany(x => x.Stickers)
-                .HasForeignKey(x => x.StickerTypeId)
+                .HasOne(e => e.StickerType)
+                .WithMany(e => e.Stickers)
+                .HasForeignKey(e => e.StickerTypeId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(true);
 
             builder.Entity<HolidayIcon>()
-                .HasOne(x => x.HolidayTheme)
-                .WithMany(x => x.HolidayIcons)
-                .HasForeignKey(x => x.HolidayThemeId)
+                .HasOne(e => e.HolidayTheme)
+                .WithMany(e => e.HolidayIcons)
+                .HasForeignKey(e => e.HolidayThemeId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(true);
 
             builder.Entity<QuickChatReply>()
-                .HasOne(x => x.ApplicationUser)
-                .WithMany(x => x.QuickChatReplies)
-                .HasForeignKey(x => x.ApplicationUserId)
+                .HasOne(e => e.ApplicationUser)
+                .WithMany(e => e.QuickChatReplies)
+                .HasForeignKey(e => e.ApplicationUserId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .IsRequired(true);
-
-            base.OnModelCreating(builder);
         }
     }
 }

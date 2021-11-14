@@ -1,8 +1,6 @@
 ﻿// Copyright (c) SDV Code Project. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-using System;
-
 namespace SdvCode.Constraints
 {
     public static class GlobalConstants
@@ -118,5 +116,17 @@ namespace SdvCode.Constraints
         public const string HolidayThemesFolder = "Holiday Theme Icon";
 
         public const int MessagesCountPerScroll = 10;
+
+        public const int RoldeDescriptionMaxLength = 250;
+
+        public const int RecentCommentsCount = 35;
+
+        public const int RecentPostsCount = 20;
+
+        public const int TopCategoriesCount = 10;
+
+        public const int TopPostsCount = 10;
+
+        public const int TopTagsCount = 10;
     }
 }

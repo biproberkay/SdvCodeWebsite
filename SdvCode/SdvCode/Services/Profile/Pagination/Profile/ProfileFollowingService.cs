@@ -3,52 +3,43 @@
 
 namespace SdvCode.Services.Profile.Pagination.Profile
 {
-    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
+    using AutoMapper;
+
     using Microsoft.AspNetCore.Identity;
+    using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Data;
     using SdvCode.Models.User;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.ActivitiesComponent;
 
     public class ProfileFollowingService : IProfileFollowingService
     {
         private readonly ApplicationDbContext db;
-        private readonly UserManager<ApplicationUser> userManager;
+        private readonly IMapper mapper;
 
-        public ProfileFollowingService(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+        public ProfileFollowingService(ApplicationDbContext db, IMapper mapper)
         {
             this.db = db;
-            this.userManager = userManager;
+            this.mapper = mapper;
         }
 
-        public async Task<List<FollowingViewModel>> ExtractFollowing(ApplicationUser user, string currentUserId)
+        public async Task<List<FollowingViewModel>> ExtractFollowing(string username)
         {
-            List<FollowingViewModel> allFollowing = new List<FollowingViewModel>();
-            var followers = this.db.FollowUnfollows
-                .Where(x => x.FollowerId == user.Id && x.IsFollowed == true)
-                .ToList();
+            var followers = await this.db.FollowUnfollows
+                .Where(x => x.Follower.UserName == username && x.IsFollowed == true)
+                .Include(x => x.ApplicationUser)
+                .Select(x => x.ApplicationUser)
+                .AsSplitQuery()
+                .ToListAsync();
 
-            foreach (var item in followers)
-            {
-                var follower = await this.userManager.FindByIdAsync(item.PersonId);
-                var hasFollow = this.db.FollowUnfollows
-                    .Any(x => x.FollowerId == currentUserId &&
-                    x.PersonId == follower.Id && x.IsFollowed == true);
-
-                allFollowing.Add(new FollowingViewModel
-                {
-                    Username = follower.UserName,
-                    FirstName = follower.FirstName,
-                    LastName = follower.LastName,
-                    ImageUrl = follower.ImageUrl,
-                    IsBlocked = follower.IsBlocked,
-                    HasFollow = hasFollow,
-                });
-            }
-
-            return allFollowing;
+            var model = this.mapper.Map<List<FollowingViewModel>>(followers);
+            return model;
         }
     }
 }

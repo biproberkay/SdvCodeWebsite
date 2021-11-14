@@ -7,12 +7,13 @@ namespace SdvCode.Services.Profile
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Authentication.Cookies;
-    using Microsoft.AspNetCore.Http;
+
+    using AutoMapper;
+
     using Microsoft.AspNetCore.Identity;
-    using Microsoft.AspNetCore.Razor.Language.Intermediate;
     using Microsoft.AspNetCore.SignalR;
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Areas.UserNotifications.Services;
     using SdvCode.Constraints;
@@ -20,7 +21,7 @@ namespace SdvCode.Services.Profile
     using SdvCode.Hubs;
     using SdvCode.Models.Enums;
     using SdvCode.Models.User;
-    using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserProfile;
     using SdvCode.ViewModels.Users.ViewModels;
 
     public class ProfileService : AddCyclicActivity, IProfileService
@@ -28,16 +29,22 @@ namespace SdvCode.Services.Profile
         private readonly ApplicationDbContext db;
         private readonly IHubContext<NotificationHub> notificationHubContext;
         private readonly INotificationService notificationService;
+        private readonly RoleManager<ApplicationRole> roleManager;
+        private readonly IMapper mapper;
 
         public ProfileService(
             ApplicationDbContext db,
             IHubContext<NotificationHub> notificationHubContext,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            RoleManager<ApplicationRole> roleManager,
+            IMapper mapper)
             : base(db)
         {
             this.db = db;
             this.notificationHubContext = notificationHubContext;
             this.notificationService = notificationService;
+            this.mapper = mapper;
+            this.roleManager = roleManager;
         }
 
         public async Task DeleteActivity(ApplicationUser user)
@@ -50,55 +57,32 @@ namespace SdvCode.Services.Profile
         public async Task<string> DeleteActivityById(ApplicationUser user, string activityId)
         {
             var trash = this.db.UserActions.FirstOrDefault(x => x.ApplicationUserId == user.Id && x.Id == activityId);
-            var activityName = trash.Action.ToString();
+            var activityName = trash.ActionType.ToString();
             this.db.UserActions.Remove(trash);
             await this.db.SaveChangesAsync();
             return activityName;
         }
 
-        public async Task<ApplicationUserViewModel> ExtractUserInfo(string username, ApplicationUser currentUser)
+        public async Task<ProfileApplicationUserViewModel> ExtractUserInfo(string username, ApplicationUser currentUser)
         {
-            var user = await this.db.Users.FirstOrDefaultAsync(u => u.UserName == username);
+            var user = await this.db.Users
+                .Include(x => x.City)
+                .Include(x => x.CountryCode)
+                .Include(x => x.Country)
+                .Include(x => x.State)
+                .Include(x => x.ZipCode)
+                .Include(x => x.Comments.Where(y => y.CommentStatus == CommentStatus.Approved))
+                .Include(x => x.Posts.Where(y => y.PostStatus == PostStatus.Approved))
+                .Include(x => x.PostLikes)
+                .Include(x => x.UserActions)
+                .Include(x => x.UserRoles)
+                    .ThenInclude(x => x.Role)
+                .AsSplitQuery()
+                .FirstOrDefaultAsync(u => u.UserName == username);
             var group = new List<string>() { username, currentUser.UserName };
+            var groupName = string.Join(GlobalConstants.ChatGroupNameSeparator, group.OrderBy(x => x));
 
-            var model = new ApplicationUserViewModel
-            {
-                Id = user.Id,
-                Username = user.UserName,
-                RegisteredOn = user.RegisteredOn,
-                PhoneNumber = user.PhoneNumber,
-                PhoneNumberConfirmed = user.PhoneNumberConfirmed,
-                Email = user.Email,
-                EmailConfirmed = user.EmailConfirmed,
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                BirthDate = user.BirthDate,
-                Gender = user.Gender,
-                AboutMe = user.AboutMe,
-                ImageUrl = user.ImageUrl,
-                CoverImageUrl = user.CoverImageUrl,
-                IsBlocked = user.IsBlocked,
-                State = this.db.States.FirstOrDefault(x => x.Id == user.StateId),
-                Country = this.db.Countries.FirstOrDefault(x => x.Id == user.CountryId),
-                City = this.db.Cities.FirstOrDefault(x => x.Id == user.CityId),
-                ZipCode = this.db.ZipCodes.FirstOrDefault(x => x.Id == user.ZipCodeId),
-                CountryCode = this.db.CountryCodes.FirstOrDefault(x => x.Id == user.CountryCodeId),
-                ActionsCount = this.db.UserActions.Count(x => x.ApplicationUserId == user.Id),
-                IsFollowed = this.db.FollowUnfollows
-                    .Any(x => x.FollowerId == currentUser.Id && x.PersonId == user.Id && x.IsFollowed == true),
-                GitHubUrl = user.GitHubUrl,
-                FacebookUrl = user.FacebookUrl,
-                InstagramUrl = user.InstagramUrl,
-                LinkedinUrl = user.LinkedinUrl,
-                TwitterUrl = user.TwitterUrl,
-                StackoverflowUrl = user.StackoverflowUrl,
-                GroupName = string.Join(GlobalConstants.ChatGroupNameSeparator, group.OrderBy(x => x)),
-            };
-
-            var rolesIds = this.db.UserRoles.Where(x => x.UserId == user.Id).Select(x => x.RoleId).ToList();
-            var roles = this.db.Roles.Where(x => rolesIds.Contains(x.Id)).OrderBy(x => x.Name).ToList();
-            model.Roles = roles.OrderBy(x => x.RoleLevel).ToList();
-
+            var model = this.mapper.Map<ProfileApplicationUserViewModel>(user);
             return model;
         }
 
@@ -106,22 +90,22 @@ namespace SdvCode.Services.Profile
         {
             var user = this.db.Users.FirstOrDefault(u => u.UserName == username);
 
-            if (!this.db.FollowUnfollows.Any(x => x.PersonId == user.Id && x.FollowerId == currentUser.Id))
+            if (!this.db.FollowUnfollows.Any(x => x.ApplicationUserId == user.Id && x.FollowerId == currentUser.Id))
             {
                 this.db.FollowUnfollows.Add(new FollowUnfollow
                 {
-                    PersonId = user.Id,
+                    ApplicationUserId = user.Id,
                     FollowerId = currentUser.Id,
                     IsFollowed = true,
                 });
             }
             else
             {
-                this.db.FollowUnfollows.FirstOrDefault(x => x.PersonId == user.Id && x.FollowerId == currentUser.Id).IsFollowed = true;
+                this.db.FollowUnfollows.FirstOrDefault(x => x.ApplicationUserId == user.Id && x.FollowerId == currentUser.Id).IsFollowed = true;
             }
 
-            this.AddUserAction(user, UserActionsType.Follow, currentUser);
-            this.AddUserAction(currentUser, UserActionsType.Followed, user);
+            this.AddUserAction(user, UserActionType.Follow, currentUser);
+            this.AddUserAction(currentUser, UserActionType.Followed, user);
             await this.db.SaveChangesAsync();
 
             return currentUser;
@@ -131,14 +115,14 @@ namespace SdvCode.Services.Profile
         {
             var user = this.db.Users.FirstOrDefault(u => u.UserName == username);
 
-            if (this.db.FollowUnfollows.Any(x => x.PersonId == user.Id && x.FollowerId == currentUser.Id && x.IsFollowed == true))
+            if (this.db.FollowUnfollows.Any(x => x.ApplicationUserId == user.Id && x.FollowerId == currentUser.Id && x.IsFollowed == true))
             {
                 this.db.FollowUnfollows
-                    .FirstOrDefault(x => x.PersonId == user.Id && x.FollowerId == currentUser.Id && x.IsFollowed == true)
+                    .FirstOrDefault(x => x.ApplicationUserId == user.Id && x.FollowerId == currentUser.Id && x.IsFollowed == true)
                     .IsFollowed = false;
 
-                this.AddUserAction(user, UserActionsType.Unfollow, currentUser);
-                this.AddUserAction(currentUser, UserActionsType.Unfollowed, user);
+                this.AddUserAction(user, UserActionType.Unfollow, currentUser);
+                this.AddUserAction(currentUser, UserActionType.Unfollowed, user);
                 await this.db.SaveChangesAsync();
             }
 
@@ -156,6 +140,26 @@ namespace SdvCode.Services.Profile
             return false;
         }
 
+        public async Task<bool> HasAdministrator()
+        {
+            var isAdminRoleExist = await this.roleManager.FindByNameAsync(GlobalConstants.AdministratorRole);
+            if (isAdminRoleExist == null)
+            {
+                await this.roleManager.CreateAsync(new ApplicationRole
+                {
+                    Name = GlobalConstants.AdministratorRole,
+                    RoleLevel = 1,
+                });
+            }
+
+            var adminRole = await this.db.Roles
+                .FirstOrDefaultAsync(x => x.Name == GlobalConstants.AdministratorRole);
+            var adminsCount = await this.db.UserRoles
+                .CountAsync(x => x.RoleId == adminRole.Id && x.UserId != null);
+
+            return adminsCount != 0;
+        }
+
         public void MakeYourselfAdmin(string username)
         {
             ApplicationUser user = this.db.Users.FirstOrDefault(x => x.UserName == username);
@@ -171,29 +175,13 @@ namespace SdvCode.Services.Profile
                 return;
             }
 
-            this.db.UserRoles.Add(new IdentityUserRole<string>
+            this.db.UserRoles.Add(new ApplicationUserRole()
             {
                 RoleId = role.Id,
                 UserId = user.Id,
             });
 
             this.db.SaveChanges();
-        }
-
-        public async Task<int> TakeCreatedPostsCountByUsername(string username)
-        {
-            return await this.db.Posts.CountAsync(x => x.ApplicationUser.UserName == username);
-        }
-
-        public async Task<int> TakeLikedPostsCountByUsername(string username)
-        {
-            var user = await this.db.Users.FirstOrDefaultAsync(x => x.UserName == username);
-            return await this.db.PostsLikes.CountAsync(x => x.UserId == user.Id && x.IsLiked == true);
-        }
-
-        public async Task<int> TakeCommentsCountByUsername(string username)
-        {
-            return await this.db.Comments.CountAsync(x => x.ApplicationUser.UserName == username);
         }
 
         public async Task<double> RateUser(ApplicationUser currentUser, string username, int rate)
@@ -264,7 +252,7 @@ namespace SdvCode.Services.Profile
 
             if (action != null)
             {
-                action.ActionStatus = (UserActionsStatus)Enum.Parse(typeof(UserActionsStatus), newStatus);
+                action.ActionStatus = (UserActionStatus)Enum.Parse(typeof(UserActionStatus), newStatus);
                 this.db.UserActions.Update(action);
                 await this.db.SaveChangesAsync();
             }

@@ -3,53 +3,49 @@
 
 namespace SdvCode.Services.Profile.Pagination.Profile
 {
-    using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
+    using AutoMapper;
+
     using Microsoft.AspNetCore.Identity;
+    using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Data;
     using SdvCode.Models.User;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.ActivitiesComponent;
 
     public class ProfileActivitiesService : IProfileActivitiesService
     {
         private readonly ApplicationDbContext db;
         private readonly UserManager<ApplicationUser> userManager;
+        private readonly IMapper mapper;
 
-        public ProfileActivitiesService(ApplicationDbContext db, UserManager<ApplicationUser> userManager)
+        public ProfileActivitiesService(
+            ApplicationDbContext db,
+            UserManager<ApplicationUser> userManager,
+            IMapper mapper)
         {
             this.db = db;
             this.userManager = userManager;
+            this.mapper = mapper;
         }
 
         public async Task<List<ActivitiesViewModel>> ExtractActivities(string username)
         {
-            List<ActivitiesViewModel> allActivities = new List<ActivitiesViewModel>();
             var user = await this.userManager.FindByNameAsync(username);
-            var activities = this.db.UserActions.Where(x => x.ApplicationUserId == user.Id).ToList();
+            var activities = this.db.UserActions
+                .Where(x => x.ApplicationUserId == user.Id)
+                .Include(x => x.ApplicationUser)
+                .OrderByDescending(x => x.CreatedOn)
+                .AsSplitQuery()
+                .ToList();
 
-            foreach (var item in activities)
-            {
-                allActivities.Add(new ActivitiesViewModel
-                {
-                    Id = item.Id,
-                    Action = item.Action,
-                    ActionDate = item.ActionDate,
-                    ApplicationUser = user,
-                    ApplicationUserId = user.Id,
-                    CoverImageUrl = item.CoverImageUrl,
-                    FollowerUsername = item.FollowerUsername,
-                    PersonUsername = item.PersonUsername,
-                    ProfileImageUrl = item.ProfileImageUrl,
-                    PostId = item.PostId,
-                    PostTitle = item.PostTitle,
-                    PostContent = item.PostContent,
-                    ActionStatus = item.ActionStatus,
-                });
-            }
-
-            return allActivities.OrderByDescending(x => x.ActionDate).ToList();
+            var model = this.mapper.Map<List<ActivitiesViewModel>>(activities);
+            return model;
         }
     }
 }

@@ -5,9 +5,13 @@ namespace SdvCode.Controllers
 {
     using System;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
+    using SdvCode.ApplicationAttributes.ActionAttributes;
+    using SdvCode.ApplicationAttributes.ActionAttributes.Blog.Comment;
     using SdvCode.Areas.Administration.Models.Enums;
     using SdvCode.Constraints;
     using SdvCode.Data;
@@ -33,6 +37,8 @@ namespace SdvCode.Controllers
         }
 
         [HttpPost]
+        [UserBlocked("Index", "Profile")]
+        [CommentCrudOperations("Index", "Blog", null, ErrorMessages.NoPermissionToCreateComment)]
         public async Task<IActionResult> Create(CreateCommentInputModel input)
         {
             if (this.ModelState.IsValid)
@@ -43,115 +49,92 @@ namespace SdvCode.Controllers
                     if (!this.commentsService.IsInPostId(parentId, input.PostId))
                     {
                         this.TempData["Error"] = ErrorMessages.DontMakeBullshits;
-                        return this.RedirectToAction("Index", "Post", new { id = input.PostId });
+                        return this.RedirectToAction("Index", "Post", new { postId = input.PostId });
                     }
 
                     bool isParentApproved = await this.commentsService.IsParentCommentApproved(parentId);
                     if (!isParentApproved)
                     {
                         this.TempData["Error"] = ErrorMessages.CannotCommentNotApprovedComment;
-                        return this.RedirectToAction("Index", "Post", new { id = input.PostId });
+                        return this.RedirectToAction("Index", "Post", new { postId = input.PostId });
                     }
                 }
 
                 var currentUser = await this.userManager.GetUserAsync(this.User);
-                var isBlocked = this.commentsService.IsBlocked(currentUser);
-                if (isBlocked)
-                {
-                    this.TempData["Error"] = ErrorMessages.YouAreBlock;
-                    return this.RedirectToAction("Index", "Post", new { id = input.PostId });
-                }
 
-                var isInRole = await this.commentsService.IsInBlogRole(currentUser);
-                if (!isInRole)
-                {
-                    this.TempData["Error"] = string.Format(ErrorMessages.NotInBlogRoles, Roles.Contributor);
-                    return this.RedirectToAction("Index", "Post", new { id = input.PostId });
-                }
-
-                Post currentPost = await this.commentsService.ExtractCurrentPost(input.PostId);
-                if (currentPost.PostStatus == PostStatus.Banned || currentPost.PostStatus == PostStatus.Pending)
+                if (await this.commentsService.IsPostApproved(input.PostId))
                 {
                     this.TempData["Error"] = ErrorMessages.CannotCommentNotApprovedBlogPost;
-                    return this.RedirectToAction("Index", "Post", new { id = input.PostId });
+                    return this.RedirectToAction("Index", "Post", new { postId = input.PostId });
                 }
 
                 var tuple = await this.commentsService
                     .Create(input.PostId, currentUser, input.SanitizedContent, parentId);
                 this.TempData[tuple.Item1] = tuple.Item2;
 
-                return this.RedirectToAction("Index", "Post", new { id = input.PostId });
+                return this.RedirectToAction("Index", "Post", new { postId = input.PostId });
             }
 
             this.TempData["Error"] = ErrorMessages.InvalidInputModel;
             return this.RedirectToAction("Index", "Blog");
         }
 
+        /// <summary>
+        /// This function will delete a comment for a target Blog Post.
+        /// </summary>
+        /// <param name="commentId">Target comment ID.</param>
+        /// <param name="postId">Target post ID related to the comment ID.</param>
+        /// <returns>Redirect to Action based on IF-ELSE statements.</returns>
+        [HttpPost]
+        [Route("/Comment/DeleteById/{commentId}/{postId}")]
+        [UserBlocked("Index", "Profile")]
+        [CommentCrudOperations("Index", "Blog", null, ErrorMessages.NoPermissionToDeleteComment)]
         public async Task<IActionResult> DeleteById(string commentId, string postId)
         {
-            var currentUser = await this.userManager.GetUserAsync(this.User);
-            var isInCommentRole = await this.commentsService.IsInCommentRole(currentUser, commentId);
-
-            if (!isInCommentRole)
-            {
-                this.TempData["Error"] = ErrorMessages.InvalidInputModel;
-            }
-
             var tuple = await this.commentsService.DeleteCommentById(commentId);
             this.TempData[tuple.Item1] = tuple.Item2;
-            return this.RedirectToAction("Index", "Post", new { id = postId });
+            return this.RedirectToAction("Index", "Post", new { postId });
         }
 
+        [HttpGet]
+        [Route("/Comment/EditComment/{commentId}/{postId}")]
+        [UserBlocked("Index", "Profile")]
+        [CommentCrudOperations("Index", "Blog", null, ErrorMessages.NoPermissionToEditComment)]
         public async Task<IActionResult> EditComment(string commentId, string postId)
         {
-            var currentUser = await this.userManager.GetUserAsync(this.User);
-            var isInCommentRole = await this.commentsService.IsInCommentRole(currentUser, commentId);
-
-            if (!isInCommentRole)
-            {
-                this.TempData["Error"] = ErrorMessages.InvalidInputModel;
-                return this.RedirectToAction("Index", "Post", new { id = postId });
-            }
-
             var isCommentIdCorrect = await this.commentsService.IsCommentIdCorrect(commentId, postId);
 
             if (!isCommentIdCorrect)
             {
                 this.TempData["Error"] = ErrorMessages.InvalidInputModel;
-                return this.RedirectToAction("Index", "Post", new { id = postId });
+                return this.RedirectToAction("Index", "Post", new { postId });
             }
 
-            EditCommentViewModel model = await this.commentsService.ExtractCurrentComment(commentId);
+            EditCommentInputModel model = await this.commentsService.GetCommentById(commentId);
 
             return this.View(model);
         }
 
         [HttpPost]
-        public async Task<IActionResult> EditComment(EditCommentViewModel model)
+        [Route("/Comment/EditComment/{commentId}/{postId}")]
+        [UserBlocked("Index", "Profile")]
+        [CommentCrudOperations("Index", "Blog", null, ErrorMessages.NoPermissionToEditComment)]
+        public async Task<IActionResult> EditComment(string commentId, string postId, EditCommentInputModel model)
         {
             if (this.ModelState.IsValid)
             {
-                var currentUser = await this.userManager.GetUserAsync(this.User);
-                var isInCommentRole = await this.commentsService.IsInCommentRole(currentUser, model.CommentId);
-
-                if (!isInCommentRole)
-                {
-                    this.TempData["Error"] = ErrorMessages.InvalidInputModel;
-                    return this.RedirectToAction("Index", "Post", new { id = model.PostId });
-                }
-
-                var isCommentIdCorrect = await this.commentsService.IsCommentIdCorrect(model.CommentId, model.PostId);
+                var isCommentIdCorrect = await this.commentsService.IsCommentIdCorrect(commentId, postId);
 
                 if (!isCommentIdCorrect)
                 {
                     this.TempData["Error"] = ErrorMessages.InvalidInputModel;
-                    return this.RedirectToAction("Index", "Post", new { id = model.PostId });
+                    return this.RedirectToAction("Index", "Post", new { postId });
                 }
 
                 Tuple<string, string> tuple = await this.commentsService.EditComment(model);
                 this.TempData[tuple.Item1] = tuple.Item2;
 
-                return this.RedirectToAction("Index", "Post", new { id = model.PostId });
+                return this.RedirectToAction("Index", "Post", new { postId });
             }
 
             this.TempData["Error"] = ErrorMessages.InvalidInputModel;

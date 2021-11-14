@@ -6,25 +6,36 @@ namespace SdvCode
     using System;
     using System.Linq;
     using System.Net.Http;
+
     using AutoMapper;
+
     using Blazored.LocalStorage;
     using Blazored.SessionStorage;
+
     using BlazorStrap;
+
     using CloudinaryDotNet;
+
     using Hangfire;
     using Hangfire.Dashboard;
     using Hangfire.SqlServer;
+
     using Microsoft.AspNetCore.Builder;
     using Microsoft.AspNetCore.Components;
     using Microsoft.AspNetCore.Hosting;
+    using Microsoft.AspNetCore.Http;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Identity.UI.Services;
+    using Microsoft.AspNetCore.Mvc.Filters;
     using Microsoft.EntityFrameworkCore;
     using Microsoft.Extensions.Configuration;
     using Microsoft.Extensions.DependencyInjection;
     using Microsoft.Extensions.Hosting;
     using Microsoft.Extensions.ML;
+
     using OfficeOpenXml;
+
+    using SdvCode.ApplicationAttributes.ActionAttributes;
     using SdvCode.Areas.Administration.Services.AddChatSticker;
     using SdvCode.Areas.Administration.Services.AddChatStickers;
     using SdvCode.Areas.Administration.Services.AddChatStickerType;
@@ -73,6 +84,10 @@ namespace SdvCode
     using SdvCode.Areas.SdvShop.Services.TrackOrder;
     using SdvCode.Areas.UserNotifications.Services;
     using SdvCode.Areas.UserNotifications.Services.NotificationDbUsage;
+    using SdvCode.AutoMapperProfiles;
+    using SdvCode.AutoMapperProfiles.Blog;
+    using SdvCode.AutoMapperProfiles.User;
+    using SdvCode.AutoMapperProfiles.ViewComponents;
     using SdvCode.Constraints;
     using SdvCode.Data;
     using SdvCode.Hubs;
@@ -99,6 +114,7 @@ namespace SdvCode
     using SdvCode.Services.UserActivitesDbUsage.AllActivities;
     using SdvCode.Services.UserActivitesDbUsage.FollowActivities;
     using SdvCode.Services.UserPosts;
+
     using Twilio;
 
     public class Startup
@@ -242,7 +258,7 @@ namespace SdvCode
             services.AddTransient<IProfileActivitiesService, ProfileActivitiesService>();
             services.AddTransient<IProfileFollowersService, ProfileFollowersService>();
             services.AddTransient<IProfileFollowingService, ProfileFollowingService>();
-            services.AddTransient<IProfileFavoritesService, ProfileFavoritesService>();
+            services.AddTransient<IProfileFavoritesService, ProfileFavouritePostsService>();
             services.AddTransient<IProfilePendingPostsService, ProfilePendingPostsService>();
             services.AddTransient<IProfileBannedPostsService, ProfileBannedPostsService>();
             services.AddTransient<IAllUsersService, AllUsersService>();
@@ -311,6 +327,32 @@ namespace SdvCode
 
             // Register OfficeOpenXml License
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            // Setup AutoMapper Profiles Configurations
+            services.AddScoped(provider => new MapperConfiguration(cfg =>
+            {
+                cfg.AddProfile(new PostProfile(provider.GetService<IHttpContextAccessor>()));
+                cfg.AddProfile(new UserProfile(
+                    provider.GetService<ApplicationDbContext>(),
+                    provider.GetService<IHttpContextAccessor>()));
+                cfg.AddProfile(new RoleProfile());
+                cfg.AddProfile(new CategoryProfile());
+                cfg.AddProfile(new CommentProfile());
+                cfg.AddProfile(new PostImageProfile());
+                cfg.AddProfile(new PostTagProfile());
+                cfg.AddProfile(new CountryCodeProfile());
+                cfg.AddProfile(new CountryProfile());
+                cfg.AddProfile(new StateProfile());
+                cfg.AddProfile(new CityProfile());
+                cfg.AddProfile(new ZipCodeProfile());
+                cfg.AddProfile(new UserActionProfile());
+                cfg.AddProfile(new BannedPostProfile());
+                cfg.AddProfile(new FavouritePostProfile());
+                cfg.AddProfile(new PendingPostProfile());
+                cfg.AddProfile(new FollowUnfollowProfile(
+                    provider.GetService<ApplicationDbContext>(),
+                    provider.GetService<IHttpContextAccessor>()));
+            }).CreateMapper());
 
             // Add Blazor Session and Local Storages
             services.AddBlazoredSessionStorage();
@@ -387,7 +429,7 @@ namespace SdvCode
             recurringJobManager
                 .AddOrUpdate<RecommendedFriends>(
                 "RecommendedFriends",
-                x => x.AddRecomendedFrinds(),
+                x => x.AddRecomendedFriends(),
                 Cron.Weekly);
 
             // Delete all follow-unfollow activities

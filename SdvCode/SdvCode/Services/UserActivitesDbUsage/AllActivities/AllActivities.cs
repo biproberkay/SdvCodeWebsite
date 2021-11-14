@@ -4,6 +4,7 @@
 namespace SdvCode.Services.UserActivitesDbUsage.AllActivities
 {
     using System.Linq;
+
     using SdvCode.Data;
     using SdvCode.Models.Enums;
 
@@ -19,7 +20,7 @@ namespace SdvCode.Services.UserActivitesDbUsage.AllActivities
         public void DeleteAllActivites()
         {
             var target = this.db.UserActions
-                .Where(x => x.ActionStatus != UserActionsStatus.Pinned)
+                .Where(x => x.ActionStatus != UserActionStatus.Pinned)
                 .ToList();
             this.db.RemoveRange(target);
             this.db.SaveChanges();

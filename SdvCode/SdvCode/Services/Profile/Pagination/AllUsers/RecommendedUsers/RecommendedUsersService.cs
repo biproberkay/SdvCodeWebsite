@@ -6,74 +6,54 @@ namespace SdvCode.Services.Profile.Pagination.AllUsers.RecommendedUsers
     using System;
     using System.Collections.Generic;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Threading.Tasks;
+
+    using AutoMapper;
+
     using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Data;
     using SdvCode.Models.User;
+    using SdvCode.ViewModels.Post.ViewModels.TopPost;
     using SdvCode.ViewModels.Users.ViewModels;
 
     public class RecommendedUsersService : IRecommendedUsersService
     {
         private readonly ApplicationDbContext db;
+        private readonly IMapper mapper;
 
-        public RecommendedUsersService(ApplicationDbContext db)
+        public RecommendedUsersService(ApplicationDbContext db, IMapper mapper)
         {
             this.db = db;
+            this.mapper = mapper;
         }
 
-        public async Task<List<UserCardViewModel>> ExtractAllUsers(string username, string search)
+        public async Task<List<AllUsersUserCardViewModel>> ExtractAllUsers(string username, string search)
         {
-            List<UserCardViewModel> allUsers = new List<UserCardViewModel>();
-            var user = await this.db.Users.FirstOrDefaultAsync(x => x.UserName == username);
-
-            var targetUsers = new List<RecommendedFriend>();
+            Expression<Func<RecommendedFriend, bool>> usersFilter;
 
             if (search == null)
             {
-                targetUsers = await this.db.RecommendedFriends
-                    .Where(x => x.ApplicationUserId == user.Id)
-                    .ToListAsync();
+                usersFilter = x => x.ApplicationUser.UserName == username;
             }
             else
             {
-                targetUsers = await this.db.RecommendedFriends
-                     .Where(x => (EF.Functions.FreeText(x.RecommendedUsername, search) ||
-                     EF.Functions.FreeText(x.RecommendedFirstName, search) ||
-                     EF.Functions.FreeText(x.RecommendedLastName, search)) &&
-                     x.ApplicationUserId == user.Id)
-                     .ToListAsync();
+                usersFilter = x => (EF.Functions.FreeText(x.RecommendedApplicationUser.UserName, search) ||
+                    EF.Functions.FreeText(x.RecommendedApplicationUser.FirstName, search) ||
+                     EF.Functions.FreeText(x.RecommendedApplicationUser.LastName, search)) &&
+                     x.ApplicationUser.UserName == username;
             }
 
-            foreach (var targetUser in targetUsers)
-            {
-                var recommendedUser = await this.db.Users.FirstOrDefaultAsync(x => x.UserName == targetUser.RecommendedUsername);
-                allUsers.Add(new UserCardViewModel
-                {
-                    UserId = recommendedUser.Id,
-                    Username = targetUser.RecommendedUsername,
-                    FirstName = targetUser.RecommendedFirstName,
-                    LastName = targetUser.RecommendedLastName,
-                    ImageUrl = targetUser.RecommendedImageUrl,
-                    CoverImageUrl = targetUser.RecommendedCoverImage,
-                });
-            }
+            var users = await this.db.RecommendedFriends
+                .Where(usersFilter)
+                .Include(x => x.RecommendedApplicationUser)
+                .Select(x => x.RecommendedApplicationUser)
+                .AsSplitQuery()
+                .ToListAsync();
 
-            foreach (var targetUser in allUsers)
-            {
-                targetUser.FollowingsCount = await this.db.FollowUnfollows
-                    .CountAsync(x => x.FollowerId == targetUser.UserId && x.IsFollowed == true);
-
-                targetUser.FollowersCount = await this.db.FollowUnfollows
-                    .CountAsync(x => x.PersonId == targetUser.UserId && x.IsFollowed == true);
-
-                targetUser.HasFollowed = await this.db.FollowUnfollows
-                    .AnyAsync(x => x.FollowerId == user.Id && x.PersonId == targetUser.UserId && x.IsFollowed == true);
-
-                targetUser.Activities = await this.db.UserActions
-                    .CountAsync(x => x.ApplicationUserId == targetUser.UserId);
-            }
-
-            return allUsers;
+            var model = this.mapper.Map<List<AllUsersUserCardViewModel>>(users);
+            return model;
         }
     }
 }

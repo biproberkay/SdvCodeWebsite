@@ -3,19 +3,18 @@
 
 namespace SdvCode.Services.Category
 {
-    using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Http;
+
     using SdvCode.Models.Blog;
     using SdvCode.Models.User;
-    using SdvCode.ViewModels.Post.ViewModels;
+    using SdvCode.ViewModels.Blog.ViewModels.BlogPostCard;
+    using SdvCode.ViewModels.Category.ViewModels.CategoryPage;
 
     public interface ICategoryService
     {
-        Task<Category> ExtractCategoryById(string id);
+        Task<CategoryPageCategoryViewModel> ExtractCategoryById(string id);
 
-        Task<ICollection<PostViewModel>> ExtractPostsByCategoryId(string id, ApplicationUser user);
+        Task<ICollection<BlogPostCardViewModel>> ExtractPostsByCategoryId(string id, ApplicationUser user);
     }
 }

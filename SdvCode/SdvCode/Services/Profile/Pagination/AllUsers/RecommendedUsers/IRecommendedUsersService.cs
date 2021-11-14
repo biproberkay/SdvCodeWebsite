@@ -3,14 +3,13 @@
 
 namespace SdvCode.Services.Profile.Pagination.AllUsers.RecommendedUsers
 {
-    using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
+
     using SdvCode.ViewModels.Users.ViewModels;
 
     public interface IRecommendedUsersService
     {
-        Task<List<UserCardViewModel>> ExtractAllUsers(string username, string search);
+        Task<List<AllUsersUserCardViewModel>> ExtractAllUsers(string username, string search);
     }
 }

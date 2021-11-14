@@ -4,19 +4,17 @@
 namespace SdvCode.Services.Post
 {
     using System;
-    using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
-    using Microsoft.AspNetCore.Http;
-    using SdvCode.Models.Blog;
+
     using SdvCode.Models.User;
     using SdvCode.ViewModels.Post.ViewModels;
+    using SdvCode.ViewModels.Post.ViewModels.PostPage;
 
-    public interface IPostService : IUserValidationService
+    public interface IPostService
     {
         Task<Tuple<string, string>> LikePost(string id, ApplicationUser user);
 
-        Task<PostViewModel> ExtractCurrentPost(string id, ApplicationUser user);
+        Task<PostViewModel> ExtractCurrentPost(string postId, ApplicationUser user);
 
         Task<Tuple<string, string>> UnlikePost(string id, ApplicationUser user);
 

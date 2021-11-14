@@ -5,11 +5,13 @@ namespace SdvCode.Services.Comment
 {
     using System;
     using System.Threading.Tasks;
+
     using SdvCode.Models.Blog;
     using SdvCode.Models.User;
+    using SdvCode.ViewModels.Comment.InputModels;
     using SdvCode.ViewModels.Comment.ViewModels;
 
-    public interface ICommentService : IUserValidationService
+    public interface ICommentService
     {
         Task<Tuple<string, string>> Create(string postId, ApplicationUser user, string content, string parentId);
 
@@ -17,14 +19,14 @@ namespace SdvCode.Services.Comment
 
         Task<Tuple<string, string>> DeleteCommentById(string commentId);
 
-        Task<Post> ExtractCurrentPost(string postId);
+        Task<bool> IsPostApproved(string postId);
 
         Task<bool> IsParentCommentApproved(string parentId);
 
         Task<bool> IsCommentIdCorrect(string commentId, string postId);
 
-        Task<EditCommentViewModel> ExtractCurrentComment(string commentId);
+        Task<EditCommentInputModel> GetCommentById(string commentId);
 
-        Task<Tuple<string, string>> EditComment(EditCommentViewModel model);
+        Task<Tuple<string, string>> EditComment(EditCommentInputModel model);
     }
 }

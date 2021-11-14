@@ -3,15 +3,16 @@
 
 namespace SdvCode.Services.Profile.Pagination.Profile
 {
-    using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
+
     using SdvCode.Models.User;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.ActivitiesComponent;
 
     public interface IProfileFollowersService
     {
-        Task<List<FollowersViewModel>> ExtractFollowers(ApplicationUser user, string currentUserId);
+        Task<List<FollowersViewModel>> ExtractFollowers(string username);
     }
 }

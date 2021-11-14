@@ -7,13 +7,17 @@ namespace SdvCode.Controllers
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Authorization;
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
     using SdvCode.Constraints;
     using SdvCode.Models.User;
     using SdvCode.Services.Category;
     using SdvCode.ViewModels.Category;
+    using SdvCode.ViewModels.Category.ViewModels.CategoryPage;
+
     using X.PagedList;
 
     public class CategoryController : Controller
@@ -27,6 +31,13 @@ namespace SdvCode.Controllers
             this.userManager = userManager;
         }
 
+        /// <summary>
+        /// This function will get all categories with there related Blog Posts.
+        /// </summary>
+        /// <param name="id">Target Category ID.</param>
+        /// <param name="page">Target page for displayed items.</param>
+        /// <returns>Return a View with a View Model with all Categories and there Blog Posts.</returns>
+        [HttpGet]
         [Authorize]
         [Route("Blog/Category/{id}/{page?}")]
         public async Task<IActionResult> Index(string id, int? page)
@@ -35,7 +46,7 @@ namespace SdvCode.Controllers
             var pageNumber = page ?? 1;
             var posts = await this.categoryService.ExtractPostsByCategoryId(id, currentUser);
 
-            CategoryViewModel model = new CategoryViewModel
+            CategoryPageViewModel model = new CategoryPageViewModel
             {
                 Category = await this.categoryService.ExtractCategoryById(id),
                 Posts = posts.ToPagedList(pageNumber, GlobalConstants.BlogPostsOnPage),

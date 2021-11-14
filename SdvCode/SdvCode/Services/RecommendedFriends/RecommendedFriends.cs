@@ -3,11 +3,8 @@
 
 namespace SdvCode.Services.RecommendedFriends
 {
-    using System;
-    using System.Collections.Generic;
     using System.Linq;
-    using System.Threading.Tasks;
-    using Microsoft.EntityFrameworkCore;
+
     using SdvCode.Data;
     using SdvCode.Models.User;
 
@@ -20,15 +17,13 @@ namespace SdvCode.Services.RecommendedFriends
             this.db = db;
         }
 
-        public void AddRecomendedFrinds()
+        public void AddRecomendedFriends()
         {
             var trash = this.db.RecommendedFriends.ToList();
             this.db.RemoveRange(trash);
             this.db.SaveChanges();
 
-            this.db.Database.ExecuteSqlRaw("DBCC CHECKIDENT('[dbo].[RecommendedFriends]', RESEED, 0);");
-
-            var users = this.db.Users.Where(x => x.IsBlocked == false).ToList();
+            var users = this.db.Users.Where(x => !x.IsBlocked).ToList();
 
             foreach (var user in users)
             {
@@ -39,17 +34,14 @@ namespace SdvCode.Services.RecommendedFriends
                 foreach (var recommendedUser in recommendedUsers)
                 {
                     var followInfollow = this.db.FollowUnfollows
-                        .FirstOrDefault(x => x.FollowerId == user.Id && x.PersonId == recommendedUser.Id && x.IsFollowed == true);
+                        .FirstOrDefault(x => x.FollowerId == user.Id && x.ApplicationUserId == recommendedUser.Id && x.IsFollowed == true);
 
                     if (followInfollow == null)
                     {
                         user.RecommendedFriends.Add(new RecommendedFriend
                         {
-                            RecommendedUsername = recommendedUser.UserName,
-                            RecommendedFirstName = recommendedUser.FirstName,
-                            RecommendedLastName = recommendedUser.LastName,
-                            RecommendedImageUrl = recommendedUser.ImageUrl,
-                            RecommendedCoverImage = recommendedUser.CoverImageUrl,
+                            ApplicationUserId = user.Id,
+                            RecommendedApplicationUserId = recommendedUser.Id,
                         });
                     }
                 }

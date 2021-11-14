@@ -7,8 +7,10 @@ namespace SdvCode.ViewComponents.Profile
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
     using SdvCode.Constraints;
     using SdvCode.Models.User;
     using SdvCode.Services.Profile.Pagination;
@@ -16,6 +18,9 @@ namespace SdvCode.ViewComponents.Profile
     using SdvCode.ViewModels.Pagination;
     using SdvCode.ViewModels.Pagination.Profile;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.BlogComponent;
+
     using X.PagedList;
 
     public class PendingPostsViewComponent : ViewComponent
@@ -33,7 +38,7 @@ namespace SdvCode.ViewComponents.Profile
         {
             var user = await this.userManager.FindByNameAsync(username);
             var currentUserId = this.userManager.GetUserId(this.HttpContext.User);
-            List<PendingPostsViewModel> allPendingPosts = await this.pendingPostsService.ExtractPendingPosts(user, currentUserId);
+            List<PendingPostViewModel> allPendingPosts = await this.pendingPostsService.ExtractPendingPosts(user, currentUserId);
 
             PendingPostsPaginationViewModel model = new PendingPostsPaginationViewModel
             {

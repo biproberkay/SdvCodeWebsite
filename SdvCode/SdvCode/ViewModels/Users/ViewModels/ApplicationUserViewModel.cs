@@ -5,15 +5,20 @@ namespace SdvCode.ViewModels.Users.ViewModels
 {
     using System;
     using System.Collections.Generic;
+
+    using SdvCode.Areas.PrivateChat.Models;
+    using SdvCode.Areas.SdvShop.Models;
+    using SdvCode.Areas.UserNotifications.Models;
     using SdvCode.Models.Blog;
     using SdvCode.Models.Enums;
     using SdvCode.Models.User;
+    using SdvCode.ViewModels.Comment.ViewModels;
 
     public class ApplicationUserViewModel
     {
         public string Id { get; set; }
 
-        public string Username { get; set; }
+        public string UserName { get; set; }
 
         public string Email { get; set; }
 
@@ -23,13 +28,21 @@ namespace SdvCode.ViewModels.Users.ViewModels
 
         public bool PhoneNumberConfirmed { get; set; }
 
-        public ZipCode ZipCode { get; set; }
+        public string ZipCodeId { get; set; }
 
-        public Country Country { get; set; }
+        public ZipCodeViewModel ZipCode { get; set; }
 
-        public State State { get; set; }
+        public string CountryId { get; set; }
 
-        public City City { get; set; }
+        public CountryViewModel Country { get; set; }
+
+        public string StateId { get; set; }
+
+        public StateViewModel State { get; set; }
+
+        public string CityId { get; set; }
+
+        public CityViewModel City { get; set; }
 
         public DateTime BirthDate { get; set; }
 
@@ -37,7 +50,9 @@ namespace SdvCode.ViewModels.Users.ViewModels
 
         public Gender Gender { get; set; }
 
-        public CountryCode CountryCode { get; set; }
+        public string CountryCodeId { get; set; }
+
+        public CountryCodeViewModel CountryCode { get; set; }
 
         public string AboutMe { get; set; }
 
@@ -65,24 +80,6 @@ namespace SdvCode.ViewModels.Users.ViewModels
 
         public string ReasonToBeBlocked { get; set; }
 
-        public ICollection<UserAction> UserActions { get; set; } = new HashSet<UserAction>();
-
-        public ICollection<Post> Posts { get; set; } = new HashSet<Post>();
-
-        public ICollection<Comment> Comments { get; set; } = new HashSet<Comment>();
-
-        public ICollection<FavouritePost> FavouritePosts { get; set; } = new HashSet<FavouritePost>();
-
-        public ICollection<PendingPost> PendingPosts { get; set; } = new HashSet<PendingPost>();
-
-        public ICollection<BlockedPost> BlockedPosts { get; set; } = new HashSet<BlockedPost>();
-
-        public int ActionsCount { get; set; }
-
         public ICollection<ApplicationRole> Roles { get; set; } = new HashSet<ApplicationRole>();
-
-        public bool IsFollowed { get; set; }
-
-        public string GroupName { get; set; }
     }
 }

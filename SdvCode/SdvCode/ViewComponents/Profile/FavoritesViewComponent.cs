@@ -7,8 +7,10 @@ namespace SdvCode.ViewComponents.Profile
     using System.Collections.Generic;
     using System.Linq;
     using System.Threading.Tasks;
+
     using Microsoft.AspNetCore.Identity;
     using Microsoft.AspNetCore.Mvc;
+
     using SdvCode.Constraints;
     using SdvCode.Models.User;
     using SdvCode.Services.Profile.Pagination;
@@ -16,6 +18,9 @@ namespace SdvCode.ViewComponents.Profile
     using SdvCode.ViewModels.Pagination;
     using SdvCode.ViewModels.Pagination.Profile;
     using SdvCode.ViewModels.Profile;
+    using SdvCode.ViewModels.Profile.UserViewComponents;
+    using SdvCode.ViewModels.Profile.UserViewComponents.BlogComponent;
+
     using X.PagedList;
 
     public class FavoritesViewComponent : ViewComponent
@@ -33,7 +38,7 @@ namespace SdvCode.ViewComponents.Profile
         {
             var user = await this.userManager.FindByNameAsync(username);
             var currentUser = await this.userManager.GetUserAsync(this.HttpContext.User);
-            List<FavoritesViewModel> allFollowers = await this.favoritesService.ExtractFavorites(user, currentUser);
+            List<FavouritePostViewModel> allFollowers = this.favoritesService.ExtractFavorites(user, currentUser);
 
             FavoritesPaginationViewModel model = new FavoritesPaginationViewModel
             {

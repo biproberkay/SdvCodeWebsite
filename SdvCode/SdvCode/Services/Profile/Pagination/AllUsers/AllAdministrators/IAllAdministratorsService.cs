@@ -3,14 +3,13 @@
 
 namespace SdvCode.Services.Profile.Pagination.AllUsers.AllAdministrators
 {
-    using System;
     using System.Collections.Generic;
-    using System.Linq;
     using System.Threading.Tasks;
+
     using SdvCode.ViewModels.Users.ViewModels;
 
     public interface IAllAdministratorsService
     {
-        Task<List<UserCardViewModel>> ExtractAllUsers(string username, string search);
+        Task<List<AllUsersUserCardViewModel>> ExtractAllUsers(string username, string search);
     }
 }
